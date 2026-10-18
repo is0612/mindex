@@ -1,0 +1,2 @@
+# 占位文件，保证 photos 目录进入 git。
+# 把照片放进本目录，然后在 src/data/photos.ts 里写 src: 'photos/文件名.jpg'

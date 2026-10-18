@@ -32,6 +32,9 @@ jobs:
       - run: npm run build
 
       - uses: actions/configure-pages@v5
+        with:
+          # 如果仓库还没启用 Pages，这一步会尝试自动开启（省得去 Settings 里点）
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

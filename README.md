@@ -74,7 +74,9 @@ public/
 - **复盘要的是 json**：`REVIEW_PROMPT` 要求模型只输出 json，接口带 `response_format: json_object`，`parseReview()` 负责解析；解析失败会原样显示文本，不会白屏。
 - **Key 怎么来**：页面右上角「设置」里填，存在 `localStorage`（`mindex.coach.settings.v1`），**不写进代码**。这是公开站点，任何写进源码的 key 等于泄露。
 - **没有 Key 的人**：点「复制提示词」把 `ROLE_PROMPT` 复制走，粘到 DeepSeek 网页版一样能练，只是复盘得另开一个对话。
-- **换模型**：`设置` 里的 Base URL 和模型名都能改，任何 OpenAI 兼容接口都行（Kimi、通义、本地 Ollama 等）。
+- **换模型**：`设置` 里的 Base URL 和模型名都能改，任何 OpenAI 兼容接口都行（Kimi、通义、本地 Ollama 等）。下拉里给的是 `deepseek-flash`（日常够用、便宜）和 `deepseek-v4-pro`（复盘更准、贵不少）。
+- **思考模式**：DeepSeek 现在默认开思考模式，陪练时每句话都要先想十几秒，而且思考模式下 `temperature` 不生效。所以代码里分成两种调用：陪练 `thinking: disabled` + `temperature: 1.1`；复盘 `thinking: enabled` + `reasoning_effort: high`（复盘只有一次，值得让它想清楚）。这两个参数只在 `deepseek.com` 域名下才发，换别家不会因为多出字段报错。
+- **旧设置自动迁移**：以前存过 `deepseek-chat` / `deepseek-reasoner` 的，`loadSettings()` 会把它们映射成 `deepseek-flash`，不用手动改。
 - **改场景**：`PRESETS` 数组就是首页那排胶囊按钮，想改成自己的高频场景直接改这里。
 
 一点限制：`fetch` 需要页面跑在 http(s) 下。直接双击 `dist/index.html` 打开时，浏览器可能拦截接口请求——这时「复制提示词」仍然可用。

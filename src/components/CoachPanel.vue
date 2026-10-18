@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import {
   CoachError,
+  MODEL_PRESETS,
   PRESETS,
   REVIEW_PROMPT,
   ROLE_PROMPT,
@@ -92,7 +93,7 @@ async function roleTurn() {
     const reply = await chatCompletion(
       settings.value,
       [{ role: 'system', content: ROLE_PROMPT }, ...turns.value],
-      { temperature: 1.1 },
+      { temperature: 1.1, think: false },
     )
     turns.value.push({ role: 'assistant', content: reply })
     busy.value = ''
@@ -124,7 +125,7 @@ async function finish() {
         { role: 'system', content: REVIEW_PROMPT },
         { role: 'user', content: buildTranscript(scenario.value, turns.value) },
       ],
-      { temperature: 0.3, json: true },
+      { json: true, think: true },
     )
     const parsed = parseReview(raw)
     if (parsed) {
@@ -297,9 +298,22 @@ const verdictTone = computed(() => {
         </label>
         <label class="field">
           <span>模型</span>
-          <input v-model="draftSettings.model" type="text" spellcheck="false" />
+          <input
+            v-model="draftSettings.model"
+            type="text"
+            list="coach-models"
+            spellcheck="false"
+          />
+          <datalist id="coach-models">
+            <option v-for="m in MODEL_PRESETS" :key="m.id" :value="m.id">{{ m.note }}</option>
+          </datalist>
         </label>
       </div>
+
+      <p class="settings-note">
+        <strong>{{ draftSettings.model || 'deepseek-flash' }}</strong> —— 陪练会把思考模式关掉，不然每句话都要先想十几秒；
+        复盘才开，让它想清楚再开口。换成别的 OpenAI 兼容接口时，这两个参数会自动不发。
+      </p>
 
       <p class="settings-note">
         没有 Key 也能用：点「复制提示词」，把提示词粘到

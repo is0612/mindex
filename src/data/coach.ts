@@ -59,7 +59,20 @@ const SETTINGS_KEY = 'mindex.coach.settings.v1'
 export const defaultSettings: CoachSettings = {
   baseUrl: 'https://api.deepseek.com',
   apiKey: '',
-  model: 'deepseek-chat',
+  model: 'deepseek-flash',
+}
+
+/** 可选模型，只是输入框的下拉建议，填别的也行 */
+export const MODEL_PRESETS = [
+  { id: 'deepseek-flash', note: '日常对话够用，便宜、快' },
+  { id: 'deepseek-v4-pro', note: '复盘更准，贵不少' },
+]
+
+/** 旧模型名映射：deepseek-chat 是以前的通用别名，现在指向 flash */
+const LEGACY_MODEL: Record<string, string> = {
+  'deepseek-chat': 'deepseek-flash',
+  'deepseek-reasoner': 'deepseek-flash',
+  'deepseek-v4-flash': 'deepseek-flash',
 }
 
 export function loadSettings(): CoachSettings {
@@ -67,10 +80,11 @@ export function loadSettings(): CoachSettings {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (!raw) return { ...defaultSettings }
     const parsed = JSON.parse(raw) as Partial<CoachSettings>
+    const saved = parsed.model?.trim() || defaultSettings.model
     return {
       baseUrl: parsed.baseUrl?.trim() || defaultSettings.baseUrl,
       apiKey: parsed.apiKey ?? '',
-      model: parsed.model?.trim() || defaultSettings.model,
+      model: LEGACY_MODEL[saved] ?? saved,
     }
   } catch {
     return { ...defaultSettings }
@@ -164,7 +178,7 @@ json 结构：
 export async function chatCompletion(
   settings: CoachSettings,
   messages: ChatMessage[],
-  opts: { temperature?: number; json?: boolean } = {},
+  opts: { temperature?: number; json?: boolean; think?: boolean } = {},
 ): Promise<string> {
   const key = settings.apiKey.trim()
   if (!key) {
@@ -172,8 +186,22 @@ export async function chatCompletion(
   }
 
   const base = (settings.baseUrl.trim() || defaultSettings.baseUrl).replace(/\/+$/, '')
+  const model = settings.model.trim() || defaultSettings.model
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 90_000)
+
+  /**
+   * DeepSeek 默认开思考模式：陪练时每句话都要先想一遍，等太久；
+   * 而且思考模式下 temperature 不生效。所以陪练显式关掉，复盘才开。
+   */
+  const isDeepSeek = /(^|\.)deepseek\.com$/i.test(new URL(base).hostname)
+  const body: Record<string, unknown> = { model, messages }
+  if (opts.json) body.response_format = { type: 'json_object' }
+  if (!opts.think && opts.temperature !== undefined) body.temperature = opts.temperature
+  if (isDeepSeek) {
+    body.thinking = { type: opts.think ? 'enabled' : 'disabled' }
+    if (opts.think) body.reasoning_effort = 'high'
+  }
 
   let res: Response
   try {
@@ -183,12 +211,7 @@ export async function chatCompletion(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({
-        model: settings.model.trim() || defaultSettings.model,
-        messages,
-        temperature: opts.temperature ?? 1,
-        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     })
   } catch {

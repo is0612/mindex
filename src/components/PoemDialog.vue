@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Poem } from '@/data/poems'
 import { formatDate } from '@/data/poems'
 
@@ -41,47 +41,52 @@ onBeforeUnmount(() => {
   document.body.style.overflow = prevOverflow
 })
 
+const sheetEl = ref<HTMLElement | null>(null)
+
 // 换诗时把内容区滚回顶部，读下一首不该停在上一首的末尾
 watch(
   () => props.poem.id,
   () => {
-    document.querySelector('.poem-sheet')?.scrollTo({ top: 0 })
+    sheetEl.value?.scrollTo({ top: 0 })
   },
 )
 </script>
 
 <template>
-  <div class="mask" role="dialog" aria-modal="true" :aria-label="poem.title" @click.self="emit('close')">
-    <article class="poem-sheet">
-      <button class="close" type="button" aria-label="关闭" @click="emit('close')">×</button>
+  <!-- 挂到 body：外层 .reveal 的 transform 会把 fixed 定位锁在区块里 -->
+  <Teleport to="body">
+    <div class="mask" role="dialog" aria-modal="true" :aria-label="poem.title" @click.self="emit('close')">
+      <article ref="sheetEl" class="poem-sheet">
+        <button class="close" type="button" aria-label="关闭" @click="emit('close')">×</button>
 
-      <header class="head">
-        <h3 class="title">{{ poem.title }}</h3>
-        <p class="meta">
-          <span v-if="poem.genre">{{ poem.genre }}</span>
-          <span v-if="poem.date" class="dot">·</span>
-          <span v-if="poem.date">{{ formatDate(poem.date) }}</span>
-        </p>
-      </header>
+        <header class="head">
+          <h3 class="title">{{ poem.title }}</h3>
+          <p class="meta">
+            <span v-if="poem.genre">{{ poem.genre }}</span>
+            <span v-if="poem.date" class="dot">·</span>
+            <span v-if="poem.date">{{ formatDate(poem.date) }}</span>
+          </p>
+        </header>
 
-      <div class="lines">
-        <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
-      </div>
+        <div class="lines">
+          <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
+        </div>
 
-      <footer v-if="list.length > 1" class="foot">
-        <button type="button" :disabled="!hasPrev" @click="step(-1)">上一首</button>
-        <span class="pos">{{ idx + 1 }} / {{ list.length }}</span>
-        <button type="button" :disabled="!hasNext" @click="step(1)">下一首</button>
-      </footer>
-    </article>
-  </div>
+        <footer v-if="list.length > 1" class="foot">
+          <button type="button" :disabled="!hasPrev" @click="step(-1)">上一首</button>
+          <span class="pos">{{ idx + 1 }} / {{ list.length }}</span>
+          <button type="button" :disabled="!hasNext" @click="step(1)">下一首</button>
+        </footer>
+      </article>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 100;
   display: grid;
   place-items: center;
   padding: 24px;

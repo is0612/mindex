@@ -22,16 +22,20 @@ src/
 ├── data/
 │   ├── profile.ts        # 名字、简介、社交链接、邮箱 ← 先改这里
 │   ├── photos.ts         # 相册数据 ← 换照片改这里
+│   ├── poems.json        # 诗词正文（242 首）
+│   ├── poems.ts          # 诗词读取与工具函数
 │   └── coach.ts          # AI 陪练：提示词、场景、接口调用 ← 改这里
 ├── utils/artwork.ts      # 程序化生成占位封面（没有真图时用）
 ├── directives/reveal.ts  # v-reveal 滚动渐显指令
 ├── components/
 │   ├── TheNav.vue        # 顶部导航（滚动变毛玻璃 + 当前区块高亮）
 │   ├── HeroSection.vue   # 首屏
-│   ├── GallerySection.vue# 相册（已完成：分类筛选 + 灯箱）
+│   ├── GallerySection.vue# 相册（分类筛选 + 灯箱）
 │   ├── PhotoLightbox.vue # 灯箱（键盘 ← → Esc、手机左右滑）
-│   ├── PoetrySlot.vue    # 个人诗词 —— 留白占位
-│   ├── AiCoachSlot.vue   # AI 陪练区块（已接入 CoachPanel）
+│   ├── ModuleSection.vue # 通用区块外壳：标题 + 插槽，插槽为空时显示占位框
+│   ├── FilterTabs.vue    # 胶囊筛选栏（相册按分类、诗词按年份共用）
+│   ├── PoetrySection.vue # 诗词：今日一首 / 年份筛选 / 列表（按需加载的独立 chunk）
+│   ├── PoemDialog.vue    # 诗词全文弹层（Teleport 到 body）
 │   ├── CoachPanel.vue    # AI 陪练面板：开始 / 对话 / 复盘
 │   ├── SectionHead.vue   # 标题栏
 │   └── SiteFooter.vue
@@ -41,7 +45,7 @@ public/
 └── photos/               # 真实照片放这里
 ```
 
-## 三件常改的事
+## 五件常改的事
 
 **1. 改名字和信息** —— `src/data/profile.ts`，同时记得改 `index.html` 里的 `<title>`。
 
@@ -52,23 +56,14 @@ public/
 
 留空 `src` 也不会开天窗——会自动生成一张同色系的抽象封面兜底。
 
-**3. 接入诗词**
+**3. 诗词（已接入）**
 
-诗词模块还留着插槽，两种接法任选一种：
-
-```vue
-<!-- 方式一：内容从外部传进去，占位装饰自动让位 -->
-<PoetrySlot>
-  <PoetryList />
-</PoetrySlot>
-```
-
-```vue
-<!-- 方式二：直接把内容粘进 .module-slot，删掉 .placeholder 那一段 -->
-<!-- 外层的间距和宽度不要动 -->
-```
-
-如果模块需要固定高度，给 `PoetrySlot.vue` 里的 `.module-slot` 加 `min-height`。
+- 数据在 `src/data/poems.json`，242 首，2010–2026，字段是 `id / title / genre / date / volumeNo / body`。
+- **加一首诗**：往这个 JSON 里推一条，`body` 是逐句的数组，页面上会自动多一张卡片、多一个年份筛选按钮。
+- **改展示**：`PoetrySection.vue`。第一屏是「今日一首」（同一天永远是同一首，`poemOfDay()` 按日期取模）；下面按年份筛选、每页 9 首。
+- **竖排/横排**：律绝每句不超过九字，走竖排；词的长句竖排会被裁掉，自动改横排。判断在 `vertical` 这个 computed 里。
+- **全文弹层**：`PoemDialog.vue`，Esc 关闭、← → 翻页，内容用 `<Teleport to="body">` 挂在 body 上——诗词区外层有 `v-reveal`，它的 `transform` 会把 `position: fixed` 锁在区块里，不 Teleport 就盖不住导航。
+- **隐私**：原始数据里每条带 `source`（QQ 空间链接，含号码），导入时已经去掉，`poems.json` 里没有外链。
 
 **4. AI 陪练（已接入）**
 
@@ -82,7 +77,19 @@ public/
 - **换模型**：`设置` 里的 Base URL 和模型名都能改，任何 OpenAI 兼容接口都行（Kimi、通义、本地 Ollama 等）。
 - **改场景**：`PRESETS` 数组就是首页那排胶囊按钮，想改成自己的高频场景直接改这里。
 
-一点限制：`fetch` 需要页面跑在 http(s) 下。直接双击 `dist/index.html` 打开时，浏览器可能拦掉接口请求——这时「复制提示词」仍然可用。
+一点限制：`fetch` 需要页面跑在 http(s) 下。直接双击 `dist/index.html` 打开时，浏览器可能拦截接口请求——这时「复制提示词」仍然可用。
+
+**5. 加一个新模块**
+
+每个大区块都是 `ModuleSection`，标题、锚点、占位都由它统一处理：
+
+```vue
+<ModuleSection id="notes" eyebrow="NOTES" title="随手记" desc="一句话说明这个区块。">
+  <NotesList />
+</ModuleSection>
+```
+
+`id` 会自动成为导航锚点（导航高亮靠它）。插槽为空时显示虚线占位框，放进内容后自动变成正常版面——不会再出现重复的 `<section id>`。
 
 ## 设计说明
 
@@ -90,3 +97,4 @@ public/
 - 动效：`v-reveal` 进入视口淡入上浮，`v-reveal="120"` 可加延迟做错落
 - 所有动画都遵守 `prefers-reduced-motion`
 - 相册网格固定 4:5，换图不用管尺寸，`object-fit: cover` 会裁好
+- 代码分割：首屏只加载相册和陪练，诗词（含 242 首数据、127 KB）用 `defineAsyncComponent` 拆成独立 chunk，主包因此从 234 KB 降到 111 KB

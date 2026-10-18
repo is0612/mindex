@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import FilterTabs from '@/components/FilterTabs.vue'
 import PoemDialog from '@/components/PoemDialog.vue'
 import { firstLine, formatDate, poemOfDay, poems, years, type Poem } from '@/data/poems'
 
@@ -40,10 +41,6 @@ const shown = ref(PAGE)
 const visible = computed(() => filtered.value.slice(0, shown.value))
 const hasMore = computed(() => filtered.value.length > shown.value)
 
-watch(activeYear, () => {
-  shown.value = PAGE
-})
-
 /* ---------- 全文弹层 ---------- */
 const activePoem = ref<Poem | null>(null)
 const activeList = ref<Poem[]>(poems)
@@ -53,86 +50,76 @@ function openPoem(poem: Poem, list: Poem[]) {
   activePoem.value = poem
 }
 
+// 换年份时重置分页，并关掉可能开着的全文弹层
 watch(activeYear, () => {
+  shown.value = PAGE
   activePoem.value = null
 })
 </script>
 
 <template>
-  <section id="poetry" class="section">
-    <div class="container">
-      <!-- 今日一首 -->
-      <article class="daily" v-reveal>
-        <header class="daily-head">
-          <span class="daily-label">今日一首</span>
-          <button class="swap" type="button" @click="swapDaily">换一首</button>
-        </header>
+  <div class="poetry">
+    <!-- 今日一首 -->
+    <article class="daily" v-reveal>
+      <header class="daily-head">
+        <span class="daily-label">今日一首</span>
+        <button class="swap" type="button" @click="swapDaily">换一首</button>
+      </header>
 
-        <div class="daily-verse" :class="vertical ? 'is-vertical' : 'is-flat'">
-          <div class="daily-lines">
-            <span v-for="(line, i) in dailyLines" :key="i">{{ line }}</span>
-            <span v-if="dailyTrimmed" class="dots">……</span>
-          </div>
+      <div class="daily-verse" :class="vertical ? 'is-vertical' : 'is-flat'">
+        <div class="daily-lines">
+          <span v-for="(line, i) in dailyLines" :key="i">{{ line }}</span>
+          <span v-if="dailyTrimmed" class="dots">……</span>
         </div>
-
-        <footer class="daily-foot">
-          <button class="daily-title" type="button" @click="openPoem(daily, poems)">
-            {{ daily.title }}
-          </button>
-          <span class="daily-meta">
-            <template v-if="daily.genre">{{ daily.genre }}</template>
-            <template v-if="daily.genre && daily.date"> · </template>
-            <template v-if="daily.date">{{ formatDate(daily.date) }}</template>
-          </span>
-        </footer>
-      </article>
-
-      <!-- 年份筛选 -->
-      <div class="toolbar" v-reveal="60">
-        <div class="filters" role="tablist" aria-label="按年份筛选">
-          <button
-            v-for="y in filters"
-            :key="y"
-            type="button"
-            role="tab"
-            :aria-selected="activeYear === y"
-            :class="{ active: activeYear === y }"
-            @click="activeYear = y"
-          >
-            {{ y }}
-          </button>
-        </div>
-        <span class="count">{{ filtered.length }} 首</span>
       </div>
 
-      <!-- 诗词列表 -->
-      <div :key="activeYear" class="grid">
-        <button
-          v-for="(poem, i) in visible"
-          :key="poem.id"
-          v-reveal="(i % 3) * 70"
-          type="button"
-          class="card"
-          :aria-label="`读《${poem.title}》`"
-          @click="openPoem(poem, filtered)"
-        >
-          <span class="card-title">{{ poem.title }}</span>
-          <span class="card-line">{{ firstLine(poem) }}</span>
-          <span class="card-foot">
-            <span class="card-genre">{{ poem.genre }}</span>
-            <span class="card-date">{{ formatDate(poem.date) }}</span>
-          </span>
+      <footer class="daily-foot">
+        <button class="daily-title" type="button" @click="openPoem(daily, poems)">
+          {{ daily.title }}
         </button>
-      </div>
+        <span class="daily-meta">
+          <template v-if="daily.genre">{{ daily.genre }}</template>
+          <template v-if="daily.genre && daily.date"> · </template>
+          <template v-if="daily.date">{{ formatDate(daily.date) }}</template>
+        </span>
+      </footer>
+    </article>
 
-      <div v-if="hasMore" class="more">
-        <button class="btn btn-ghost" type="button" @click="shown += PAGE">
-          再看 {{ Math.min(PAGE, filtered.length - shown) }} 首
-        </button>
-      </div>
+    <!-- 年份筛选 -->
+    <FilterTabs
+      v-model="activeYear"
+      :options="filters"
+      label="按年份筛选"
+      :count="`${filtered.length} 首`"
+    />
 
-      <p v-else-if="filtered.length === 0" class="empty">这一年还没有留下字。</p>
+    <!-- 诗词列表 -->
+    <div :key="activeYear" class="grid">
+      <button
+        v-for="(poem, i) in visible"
+        :key="poem.id"
+        v-reveal="(i % 3) * 70"
+        type="button"
+        class="card"
+        :aria-label="`读《${poem.title}》`"
+        @click="openPoem(poem, filtered)"
+      >
+        <span class="card-title">{{ poem.title }}</span>
+        <span class="card-line">{{ firstLine(poem) }}</span>
+        <span class="card-foot">
+          <span class="card-genre">{{ poem.genre }}</span>
+          <span class="card-date">{{ formatDate(poem.date) }}</span>
+        </span>
+      </button>
     </div>
+
+    <div v-if="hasMore" class="more">
+      <button class="btn btn-ghost" type="button" @click="shown += PAGE">
+        再看 {{ Math.min(PAGE, filtered.length - shown) }} 首
+      </button>
+    </div>
+
+    <p v-else-if="filtered.length === 0" class="empty">这一年还没有留下字。</p>
 
     <PoemDialog
       v-if="activePoem"
@@ -141,7 +128,7 @@ watch(activeYear, () => {
       @update:poem="activePoem = $event"
       @close="activePoem = null"
     />
-  </section>
+  </div>
 </template>
 
 <style scoped>
@@ -253,52 +240,6 @@ watch(activeYear, () => {
   letter-spacing: 0.1em;
   color: var(--ink-3);
   white-space: nowrap;
-}
-
-/* ---------- 筛选 ---------- */
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.filters button {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 13.5px;
-  color: var(--ink-3);
-  transition:
-    color 0.25s var(--ease),
-    background 0.25s var(--ease),
-    border-color 0.25s var(--ease);
-}
-
-.filters button:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.filters button.active {
-  color: var(--accent);
-  background: var(--accent-wash);
-  border-color: rgba(47, 93, 80, 0.16);
-  font-weight: 500;
-}
-
-.count {
-  font-size: 12.5px;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
 }
 
 /* ---------- 列表 ---------- */

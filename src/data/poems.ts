@@ -21,8 +21,15 @@ export const years = Array.from(new Set(poems.map((p) => p.date.slice(0, 4))))
 
 /** 取首句，去掉句末标点，用作卡片摘要 */
 export function firstLine(poem: Poem): string {
-  const line = poem.body.find((l) => l.trim()) ?? ''
-  return line.replace(/[，。！？、；：,]+$/, '')
+  const lines = poem.body.map((l) => l.trim()).filter(Boolean)
+  const clean = (l: string) => l.replace(/[，。！？、；：,]+$/, '')
+  const first = clean(lines[0] ?? '')
+
+  // 有些词把题目写进了正文第一句，卡片上会和标题重复，往下一句取
+  if (first && (poem.title.includes(first) || first.includes(poem.title))) {
+    return clean(lines[1] ?? '') || first
+  }
+  return first
 }
 
 /** 同一天打开永远是同一首，换日才换诗 */

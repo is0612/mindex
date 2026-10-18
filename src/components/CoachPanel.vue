@@ -156,6 +156,12 @@ function reset(keepScenario = true) {
   if (!keepScenario) scenario.value = ''
 }
 
+/** 同一个场景重新开练，不用再输一遍 */
+function restart() {
+  reset(true)
+  void start()
+}
+
 function usePreset(p: string) {
   scenario.value = p
   start(p)
@@ -265,8 +271,8 @@ const verdictTone = computed(() => {
       </div>
 
       <div class="bar-actions">
-        <button v-if="phase !== 'idle'" class="mini" @click="reset(true)">换个场景</button>
-        <button v-if="phase !== 'idle'" class="mini" @click="reset(true)">重来</button>
+        <button v-if="phase !== 'idle'" class="mini" @click="reset(false)">换个场景</button>
+        <button v-if="phase !== 'idle'" class="mini" @click="restart">重来</button>
         <button class="mini" :class="{ on: showSettings }" @click="showSettings ? closeSettings() : openSettings()">
           设置
         </button>

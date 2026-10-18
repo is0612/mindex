@@ -39,11 +39,18 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'ArrowRight') go(1)
 }
 
+let prevOverflow = ''
+
 watch(
   isOpen,
   (open) => {
     if (typeof document !== 'undefined') {
-      document.body.style.overflow = open ? 'hidden' : ''
+      if (open) {
+        prevOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+      } else {
+        document.body.style.overflow = prevOverflow
+      }
     }
     if (typeof window === 'undefined') return
     if (open) window.addEventListener('keydown', onKey)
@@ -53,7 +60,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (typeof document !== 'undefined') document.body.style.overflow = ''
+  if (typeof document !== 'undefined') document.body.style.overflow = prevOverflow
   if (typeof window !== 'undefined') window.removeEventListener('keydown', onKey)
 })
 

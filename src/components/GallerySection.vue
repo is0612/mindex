@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { photos, photoSrc } from '@/data/photos'
+import FilterTabs from '@/components/FilterTabs.vue'
 import SectionHead from '@/components/SectionHead.vue'
 import PhotoLightbox from '@/components/PhotoLightbox.vue'
 
@@ -33,22 +34,12 @@ function open(index: number) {
         desc="随手拍下的一些光。点开可以放大，键盘左右键也能翻页。"
       />
 
-      <div class="toolbar" v-reveal="60">
-        <div class="filters" role="tablist" aria-label="相册分类">
-          <button
-            v-for="cat in categories"
-            :key="cat"
-            type="button"
-            role="tab"
-            :aria-selected="active === cat"
-            :class="{ active: active === cat }"
-            @click="active = cat"
-          >
-            {{ cat }}
-          </button>
-        </div>
-        <span class="count">{{ filtered.length }} 张</span>
-      </div>
+      <FilterTabs
+        v-model="active"
+        :options="categories"
+        label="相册分类"
+        :count="`${filtered.length} 张`"
+      />
 
       <div :key="active" class="grid">
         <button
@@ -76,51 +67,6 @@ function open(index: number) {
 </template>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 26px;
-  flex-wrap: wrap;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.filters button {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 13.5px;
-  color: var(--ink-3);
-  transition:
-    color 0.25s var(--ease),
-    background 0.25s var(--ease),
-    border-color 0.25s var(--ease);
-}
-
-.filters button:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.filters button.active {
-  color: var(--accent);
-  background: var(--accent-wash);
-  border-color: rgba(47, 93, 80, 0.16);
-  font-weight: 500;
-}
-
-.count {
-  font-size: 12.5px;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));

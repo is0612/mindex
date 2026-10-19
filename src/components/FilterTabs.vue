@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * 胶囊式筛选栏：左边一排选项，右边一个统计数字。
- * 相册按分类筛、诗词按年份筛，共用这一套。
- */
+/** 胶囊式筛选栏，相册与诗词共用 */
 defineProps<{
   modelValue: string
   options: string[]
@@ -40,14 +37,16 @@ defineEmits<{
 <style scoped>
 .toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
-  flex-wrap: wrap;
 }
 
+/* 年份多时在内部换行，统计数字留在右上 */
 .filters {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -78,8 +77,23 @@ defineEmits<{
 }
 
 .count {
+  flex: 0 0 auto;
+  padding-top: 6px;
   font-size: 12.5px;
   letter-spacing: 0.08em;
   color: var(--ink-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .toolbar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .count {
+    padding-top: 0;
+    align-self: flex-end;
+  }
 }
 </style>

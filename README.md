@@ -23,9 +23,12 @@ src/
 │   ├── profile.ts        # 名字、简介、社交链接、邮箱 ← 先改这里
 │   ├── photos.ts         # 照片类型 + 取图地址（数据在 public/photos.json）
 │   ├── gallery.ts        # 运行时加载相册数据与分类
-│   ├── poems.json        # 诗词正文（242 首）
-│   ├── poems.ts          # 诗词读取与工具函数
+│   ├── poems.json        # 诗词正文（条目由管理页增删）
+│   ├── poems.ts          # 诗词排序 / 年份 / 首句等纯函数
 │   └── coach.ts          # AI 陪练：提示词、场景、接口调用 ← 改这里
+├── stores/poetry.ts      # 诗词数据源（文件 / 浏览器 / 内置 三层兜底 + 增删改）
+├── pages/PoetryManage.vue# 诗词管理页：#/poems，全部诗词的查改增删
+├── composables/useHashRoute.ts # 极简 hash 路由（首页 / 管理页）
 ├── utils/artwork.ts      # 程序化生成占位封面（没有真图时用）
 ├── directives/reveal.ts  # v-reveal 滚动渐显指令
 ├── components/
@@ -80,13 +83,21 @@ public/
   git 会永久保留历史，别把相机原图直接提交。
 - 注意：`yarn preview` 读的是 `dist/`，改了 `public/` 要重新 `yarn build`；`yarn dev` 实时生效。
 
-**3. 诗词（已接入）**
+**3. 诗词（已接入 + 可视化后台）**
 
-- 数据在 `src/data/poems.json`，242 首，2010–2026，字段是 `id / title / genre / date / volumeNo / body`。
-- **加一首诗**：往这个 JSON 里推一条，`body` 是逐句的数组，页面上会自动多一张卡片、多一个年份筛选按钮。
-- **改展示**：`PoetrySection.vue`。第一屏是「今日一首」（同一天永远是同一首，`poemOfDay()` 按日期取模）；下面按年份筛选、每页 9 首。
-- **竖排/横排**：律绝每句不超过九字，走竖排；词的长句竖排会被裁掉，自动改横排。判断在 `vertical` 这个 computed 里。
-- **全文弹层**：`PoemDialog.vue`，Esc 关闭、← → 翻页，内容用 `<Teleport to="body">` 挂在 body 上——诗词区外层有 `v-reveal`，它的 `transform` 会把 `position: fixed` 锁在区块里，不 Teleport 就盖不住导航。
+- 数据在 `src/data/poems.json`，200+ 首，2010–2026，字段是 `id / title / genre / date / volumeNo / body`。
+- **管理页**：首页诗词板块底部「查看全部 N 首 · 管理诗词」，或直接访问 `#/poems`。里面能搜标题/正文/体裁、按年份和体裁筛、分页，单首或批量删除、新增、编辑、导入导出 JSON、恢复初始数据。删除后有 7 秒撤销。
+- **改动存哪儿**（`src/stores/poetry.ts` 里的三层兜底）：
+  - `npm run dev` 下：`vite.config.ts` 里的 `poems-file-api` 中间件提供 `GET/PUT /api/poems`，管理页的改动**直接写回 `src/data/poems.json`**，重新 build 后线上生效。因为写了 `server.watch.ignored`，保存时不会整页刷新。
+  - 静态部署（`dist/`）下没有后端：改动只存在浏览器 `localStorage`（`mindex:poems:v1`），顶部会标「浏览器本地」。这时用「导出 JSON」覆盖 `src/data/poems.json` 才会永久保存。
+  - 什么都没改过：直接用构建时打包的初始数据。
+- **加一首诗**：以前要手改 JSON，现在去管理页点「新增」；`body` 在表单里一行一句，空行自动去掉。
+- **改展示**：`PoetrySection.vue`。第一屏是「今日一首」（同一天永远是同一首，`poemOfDay()` 按日期取模）；下面按年份筛选、每页 9 首。诗词板块和后台共用 `stores/poetry.ts` 的同一份 `poems`，所以后台删掉的诗，回到首页立刻消失。
+- **排版按体裁走**：判定在 `data/poems.ts` 的 `poemLayout()`，三处（今日一首、全文弹窗）共用同一套规则。
+  - **竖排**（`writing-mode: vertical-rl`，一句一列、从右往左）只给句式整齐的律绝古体：体裁不是词、标题不带「·」、不超过 8 句、最长一句不超过 9 字。竖排时会去掉句末标点，纯文字排出来更像古籍。
+  - **横排**：词牌一律横排（长短句竖排会被切断），句数多或一句十几个字的古体也横排，逐句居中、长句自己折行。
+  - 竖排里 `line-height` 控制的是**列宽**、`letter-spacing` 是字距，和横排正好反过来；列间距用 `p + p { margin-left }`，首尾不留白才能真居中。
+- **全文弹窗**：`PoemDialog.vue` 高度固定（`min(80vh, 620px)`），标题和「上一首 / 下一首」位置不动，切换诗词时只有中间内容区换，不会整块弹窗忽高忽低；内容超长时在中间区域内部滚动。Esc 关闭、← → 翻页，`<Teleport to="body">` 挂在 body 上——诗词区外层有 `v-reveal`，它的 `transform` 会把 `position: fixed` 锁在区块里，不 Teleport 就盖不住导航。
 - **隐私**：原始数据里每条带 `source`（QQ 空间链接，含号码），导入时已经去掉，`poems.json` 里没有外链。
 
 **4. AI 陪练（已接入）**
@@ -123,4 +134,4 @@ public/
 - 动效：`v-reveal` 进入视口淡入上浮，`v-reveal="120"` 可加延迟做错落
 - 所有动画都遵守 `prefers-reduced-motion`
 - 相册网格固定 4:5，换图不用管尺寸，`object-fit: cover` 会裁好
-- 代码分割：首屏只加载相册和陪练，诗词（含 242 首数据、127 KB）用 `defineAsyncComponent` 拆成独立 chunk，主包因此从 234 KB 降到 111 KB
+- 代码分割：首屏只加载相册和陪练，诗词（含全部诗词数据）用 `defineAsyncComponent` 拆成独立 chunk，主包因此从 234 KB 降到 111 KB

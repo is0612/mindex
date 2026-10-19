@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Poem } from '@/data/poems'
-import { formatDate } from '@/data/poems'
+import { formatDate, poemLayout, type Poem } from '@/data/poems'
 
 const props = defineProps<{
   poem: Poem
@@ -12,6 +11,9 @@ const emit = defineEmits<{
   'update:poem': [poem: Poem]
   close: []
 }>()
+
+/** 与首页同一套排版规则 */
+const layout = computed(() => poemLayout(props.poem))
 
 const idx = computed(() => props.list.findIndex((p) => p.id === props.poem.id))
 const hasPrev = computed(() => idx.value > 0)
@@ -41,13 +43,13 @@ onBeforeUnmount(() => {
   document.body.style.overflow = prevOverflow
 })
 
-const sheetEl = ref<HTMLElement | null>(null)
+const scrollEl = ref<HTMLElement | null>(null)
 
-// 换诗时把内容区滚回顶部，读下一首不该停在上一首的末尾
+// 换诗时滚回顶部
 watch(
   () => props.poem.id,
   () => {
-    sheetEl.value?.scrollTo({ top: 0 })
+    scrollEl.value?.scrollTo({ top: 0, left: 0 })
   },
 )
 </script>
@@ -56,7 +58,8 @@ watch(
   <!-- 挂到 body：外层 .reveal 的 transform 会把 fixed 定位锁在区块里 -->
   <Teleport to="body">
     <div class="mask" role="dialog" aria-modal="true" :aria-label="poem.title" @click.self="emit('close')">
-      <article ref="sheetEl" class="poem-sheet">
+      <!-- 高度固定：翻页时弹窗不忽高忽低 -->
+      <article class="poem-sheet" :class="`is-${layout}`">
         <button class="close" type="button" aria-label="关闭" @click="emit('close')">×</button>
 
         <header class="head">
@@ -65,11 +68,15 @@ watch(
             <span v-if="poem.genre">{{ poem.genre }}</span>
             <span v-if="poem.date" class="dot">·</span>
             <span v-if="poem.date">{{ formatDate(poem.date) }}</span>
+            <span v-if="poem.body.length > 12" class="dot">·</span>
+            <span v-if="poem.body.length > 12">共 {{ poem.body.length }} 句</span>
           </p>
         </header>
 
-        <div class="lines">
-          <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
+        <div ref="scrollEl" class="lines">
+          <div class="verse-body">
+            <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
+          </div>
         </div>
 
         <footer v-if="list.length > 1" class="foot">
@@ -97,10 +104,12 @@ watch(
 
 .poem-sheet {
   position: relative;
-  width: min(100%, 560px);
-  max-height: min(84vh, 760px);
-  overflow-y: auto;
-  padding: 38px 40px 26px;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 580px);
+  /* 固定高度，翻页时弹窗和按钮都不动 */
+  height: min(80vh, 620px);
+  padding: 34px 40px 20px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -109,6 +118,8 @@ watch(
 }
 
 .head {
+  flex: 0 0 auto;
+  min-height: 62px;
   text-align: center;
 }
 
@@ -129,20 +140,75 @@ watch(
   opacity: 0.6;
 }
 
+/* 中间内容区，超长时内部滚动 */
 .lines {
-  margin: 28px 0 30px;
-  text-align: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 14px 4px 14px 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 104, 157, 0.24) transparent;
 }
 
-.lines p {
+.lines::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.lines::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(71, 104, 157, 0.22);
+}
+
+.lines::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 104, 157, 0.4);
+}
+
+.lines::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.verse-body {
+  margin: auto;
   font-family: var(--font-serif);
-  font-size: 17.5px;
-  line-height: 2.15;
-  letter-spacing: 0.06em;
   color: var(--ink);
 }
 
+/* 竖排：line-height 是列宽，letter-spacing 才是字距 */
+.is-vertical .verse-body {
+  writing-mode: vertical-rl;
+  font-size: clamp(17px, 2.2vw, 20px);
+  line-height: 1.8;
+  letter-spacing: 0.14em;
+}
+
+.is-vertical .verse-body p {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 列间距，首尾不留才能居中 */
+.is-vertical .verse-body p + p {
+  margin-left: 26px;
+}
+
+/* 横排 */
+.is-flat .verse-body {
+  width: 100%;
+  text-align: center;
+}
+
+.is-flat .verse-body p {
+  font-size: 17px;
+  line-height: 2.15;
+  letter-spacing: 0.05em;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
 .foot {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -215,13 +281,31 @@ watch(
 
 @media (max-width: 620px) {
   .poem-sheet {
-    padding: 34px 22px 20px;
-    max-height: 88vh;
+    padding: 30px 20px 16px;
+    height: min(86vh, 620px);
   }
 
-  .lines p {
+  .head {
+    min-height: 56px;
+  }
+
+  .title {
+    font-size: 21px;
+  }
+
+  .is-flat .verse-body p {
     font-size: 16px;
     line-height: 2.05;
+  }
+
+  .is-vertical .verse-body {
+    font-size: 16px;
+    line-height: 1.85;
+    letter-spacing: 0.12em;
+  }
+
+  .is-vertical .verse-body p + p {
+    margin-left: 18px;
   }
 }
 

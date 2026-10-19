@@ -1,39 +1,43 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import FilterTabs from '@/components/FilterTabs.vue'
 import PoemDialog from '@/components/PoemDialog.vue'
-import { firstLine, formatDate, poemOfDay, poems, years, type Poem } from '@/data/poems'
+import { excerpt, firstLine, formatDate, poemLayout, poemOfDay, type Poem } from '@/data/poems'
+import { loadPoems, poems, years } from '@/stores/poetry'
+
+onMounted(loadPoems)
 
 /* ---------- 今日一首 ---------- */
-const daily = ref<Poem>(poemOfDay())
+/** 换过就固定这一首 */
+const picked = ref<Poem | null>(null)
+const daily = computed<Poem | null>(() => picked.value ?? poemOfDay(poems.value))
 
-/** 最多展示四句，长调只露开头 */
-const dailyLines = computed(() => daily.value.body.slice(0, 4))
-const dailyTrimmed = computed(() => daily.value.body.length > 4)
-
-/**
- * 律绝每句不超过九字，竖排好看；
- * 词的长句竖排会被裁掉，改成横排居中。
- */
-const vertical = computed(() => dailyLines.value.every((l) => l.length <= 9))
+const dailyLayout = computed(() => (daily.value ? poemLayout(daily.value) : 'flat'))
+const dailyBody = computed(() =>
+  daily.value ? excerpt(daily.value, 4) : { lines: [], trimmed: false },
+)
 
 function swapDaily() {
-  if (poems.length < 2) return
-  let next = daily.value
-  while (next.id === daily.value.id) {
-    next = poems[Math.floor(Math.random() * poems.length)]
-  }
-  daily.value = next
+  const list = poems.value
+  if (list.length < 2) return
+  const current = daily.value?.id
+  let next = current
+  while (next === current) next = list[Math.floor(Math.random() * list.length)].id
+  picked.value = list.find((p) => p.id === next) ?? null
+}
+
+function openDaily() {
+  if (daily.value) openPoem(daily.value, poems.value)
 }
 
 /* ---------- 年份筛选 ---------- */
 const activeYear = ref('全部')
-const filters = ['全部', ...years]
+const filters = computed(() => ['全部', ...years.value])
 
 const filtered = computed(() =>
   activeYear.value === '全部'
-    ? poems
-    : poems.filter((p) => p.date.startsWith(activeYear.value)),
+    ? poems.value
+    : poems.value.filter((p) => p.date.startsWith(activeYear.value)),
 )
 
 const PAGE = 9
@@ -43,14 +47,14 @@ const hasMore = computed(() => filtered.value.length > shown.value)
 
 /* ---------- 全文弹层 ---------- */
 const activePoem = ref<Poem | null>(null)
-const activeList = ref<Poem[]>(poems)
+const activeList = ref<Poem[]>([])
 
 function openPoem(poem: Poem, list: Poem[]) {
   activeList.value = list
   activePoem.value = poem
 }
 
-// 换年份时重置分页，并关掉可能开着的全文弹层
+// 换年份时重置分页，顺手关掉弹层
 watch(activeYear, () => {
   shown.value = PAGE
   activePoem.value = null
@@ -60,27 +64,27 @@ watch(activeYear, () => {
 <template>
   <div class="poetry">
     <!-- 今日一首 -->
-    <article class="daily" v-reveal>
+    <article v-if="daily" class="daily" v-reveal>
       <header class="daily-head">
         <span class="daily-label">今日一首</span>
         <button class="swap" type="button" @click="swapDaily">换一首</button>
       </header>
 
-      <div class="daily-verse" :class="vertical ? 'is-vertical' : 'is-flat'">
-        <div class="daily-lines">
-          <span v-for="(line, i) in dailyLines" :key="i">{{ line }}</span>
-          <span v-if="dailyTrimmed" class="dots">……</span>
+      <div class="daily-verse" :class="`is-${dailyLayout}`">
+        <div class="verse-body">
+          <p v-for="(line, i) in dailyBody.lines" :key="i">{{ line }}</p>
         </div>
       </div>
 
       <footer class="daily-foot">
-        <button class="daily-title" type="button" @click="openPoem(daily, poems)">
+        <button class="daily-title" type="button" @click="openDaily">
           {{ daily.title }}
         </button>
         <span class="daily-meta">
           <template v-if="daily.genre">{{ daily.genre }}</template>
           <template v-if="daily.genre && daily.date"> · </template>
           <template v-if="daily.date">{{ formatDate(daily.date) }}</template>
+          <template v-if="dailyBody.trimmed"> · 共 {{ daily.body.length }} 句</template>
         </span>
       </footer>
     </article>
@@ -120,6 +124,14 @@ watch(activeYear, () => {
     </div>
 
     <p v-else-if="filtered.length === 0" class="empty">这一年还没有留下字。</p>
+
+    <!-- 进管理页看全部 -->
+    <div v-if="poems.length" class="archive">
+      <a class="archive-link" href="#/poems">
+        查看全部 {{ poems.length }} 首 · 管理诗词
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
 
     <PoemDialog
       v-if="activePoem"
@@ -172,46 +184,46 @@ watch(activeYear, () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 26px 0 20px;
-  overflow-x: auto;
+  padding: 30px 0 26px;
+  min-height: 190px;
 }
 
-.daily-lines {
+.verse-body {
   font-family: var(--font-serif);
   color: var(--ink);
 }
 
-/* 律绝：竖排，从右往左 */
-.is-vertical .daily-lines {
+/* 竖排：line-height 是列宽，letter-spacing 才是字距 */
+.is-vertical .verse-body {
   writing-mode: vertical-rl;
-  height: clamp(220px, 30vh, 300px);
-  font-size: 19px;
-  line-height: 1.6;
-  letter-spacing: 0.14em;
+  font-size: clamp(18px, 1.6vw, 21px);
+  line-height: 1.78;
+  letter-spacing: 0.16em;
 }
 
-.is-vertical .daily-lines span {
-  display: block;
+.is-vertical .verse-body p {
+  margin: 0;
   white-space: nowrap;
-  margin-bottom: 20px;
 }
 
-/* 长调：句子太长，竖排会被裁掉，改横排居中 */
-.is-flat .daily-lines {
-  max-width: 660px;
-  font-size: 16.5px;
-  line-height: 2.1;
-  letter-spacing: 0.05em;
+/* 列间距，首尾不留才能居中 */
+.is-vertical .verse-body p + p {
+  margin-left: 20px;
+}
+
+/* 横排：长句自己折行 */
+.is-flat .verse-body {
+  width: 100%;
+  max-width: 640px;
+  font-size: clamp(15px, 1.15vw, 16.5px);
+  line-height: 2.15;
+  letter-spacing: 0.04em;
   text-align: center;
+  text-wrap: pretty;
 }
 
-.is-flat .daily-lines span {
-  display: block;
-}
-
-.daily-lines .dots {
-  opacity: 0.45;
-  letter-spacing: 0.3em;
+.is-flat .verse-body p {
+  white-space: pre-wrap;
 }
 
 .daily-foot {
@@ -319,26 +331,68 @@ watch(activeYear, () => {
   color: var(--ink-3);
 }
 
+.archive {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.archive-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 124, 177, 0.25);
+  background: rgba(255, 255, 255, 0.62);
+  font-size: 13.5px;
+  color: var(--ink-2);
+  transition:
+    color 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    background 0.25s var(--ease),
+    transform 0.25s var(--ease);
+}
+
+.archive-link span {
+  transition: transform 0.25s var(--ease);
+}
+
+.archive-link:hover {
+  color: var(--accent);
+  border-color: rgba(87, 126, 187, 0.52);
+  background: #fff;
+}
+
+.archive-link:hover span {
+  transform: translateX(3px);
+}
+
 @media (max-width: 720px) {
   .daily {
     padding: 20px 18px 18px;
   }
 
-  .daily-lines {
+  .daily-verse {
+    padding: 24px 0 20px;
+    min-height: 150px;
+  }
+
+  .is-vertical .verse-body {
     font-size: 17px;
-    letter-spacing: 0.1em;
+    line-height: 1.85;
+    letter-spacing: 0.14em;
   }
 
-  .is-vertical .daily-lines {
-    height: 220px;
+  .is-vertical .verse-body p + p {
+    margin-left: 15px;
   }
 
-  .is-flat .daily-lines {
+  .is-flat .verse-body {
     font-size: 15.5px;
-  }
-
-  .is-vertical .daily-lines span {
-    margin-bottom: 16px;
+    line-height: 2.05;
   }
 
   .grid {

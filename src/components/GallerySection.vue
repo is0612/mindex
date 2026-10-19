@@ -1,15 +1,21 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { photos, photoSrc } from '@/data/photos'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useGallery } from '@/data/gallery'
+import { photoSrc } from '@/data/photos'
 import FilterTabs from '@/components/FilterTabs.vue'
 import SectionHead from '@/components/SectionHead.vue'
 import PhotoLightbox from '@/components/PhotoLightbox.vue'
 
-const categories = computed(() => ['全部', ...Array.from(new Set(photos.map((p) => p.category)))])
+// 相册数据在 public/photos.json + albums.json，运行时加载
+const { photos, categories, loading, failed, load } = useGallery()
+onMounted(load)
+
 const active = ref('全部')
 
 const filtered = computed(() =>
-  active.value === '全部' ? photos : photos.filter((p) => p.category === active.value),
+  active.value === '全部'
+    ? photos.value
+    : photos.value.filter((p) => p.category === active.value),
 )
 
 const currentIndex = ref<number | null>(null)
@@ -35,13 +41,23 @@ function open(index: number) {
       />
 
       <FilterTabs
+        v-if="!loading && !failed"
         v-model="active"
         :options="categories"
         label="相册分类"
         :count="`${filtered.length} 张`"
       />
 
-      <div :key="active" class="grid">
+      <div v-if="loading" class="grid" aria-busy="true" aria-label="相册加载中">
+        <span v-for="n in 8" :key="n" class="skeleton" />
+      </div>
+
+      <p v-else-if="failed" class="gallery-error">
+        相册数据没加载出来。确认 <code>public/photos.json</code> 存在，并且页面是通过本地服务器
+        （<code>yarn dev</code>）打开的 —— 直接双击 html 文件时浏览器不允许读取本地 JSON。
+      </p>
+
+      <div v-else :key="active" class="grid">
         <button
           v-for="(photo, i) in filtered"
           :key="photo.id"
@@ -153,6 +169,52 @@ function open(index: number) {
   font-size: 11.5px;
   opacity: 0.6;
   margin-top: 1px;
+}
+
+/* 数据加载中的占位块 */
+.skeleton {
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: 8px;
+  background: linear-gradient(
+    100deg,
+    rgba(231, 226, 214, 0.5) 28%,
+    rgba(250, 247, 240, 0.92) 48%,
+    rgba(231, 226, 214, 0.5) 68%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -130% 0;
+  }
+}
+
+.gallery-error {
+  padding: 24px 22px;
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 1.95;
+}
+
+.gallery-error code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(36, 31, 26, 0.06);
+  font-size: 12.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 @media (max-width: 720px) {

@@ -1,0 +1,7 @@
+{
+  "albums": [
+    { "id": "landscape", "name": "风景", "order": 1, "visible": true },
+    { "id": "humanity", "name": "人文", "order": 2, "visible": true },
+    { "id": "daily", "name": "日常", "order": 3, "visible": true }
+  ]
+}

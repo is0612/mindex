@@ -15,29 +15,14 @@ npm run build    # 产物在 dist/
 npm run preview  # 本地预览 dist
 ```
 
-## 主页方案
-
-同一份内容（`src/data/`），四套可对比的主页，构建入口见 `vite.config.ts`：
-
-| 入口 | 地址 | 设计语言 |
-| --- | --- | --- |
-| 方案索引 | `/home.html` | 三套方案的对比入口页，从这里开始看 |
-| 01 编辑杂志 | `/home-editorial.html` | 暖纸、宋体、发丝线、竖排诗词、首字下沉 |
-| 02 瑞士极简 | `/home-swiss.html` | 黑白灰 + 正红、强栅格、1px 黑线、反色交互、诗词表格 |
-| 03 轻盈玻璃 | `/home-glass.html` | 天空渐变、毛玻璃卡片、大圆角、渐变按钮 |
-| 旧版 v0 | `/index.html` | 最早的暖纸墨绿版，未受三套方案影响 |
-
-三套方案的源码在 `src/versions/<name>/`，共享的程序化配图在 `src/versions/shared/artwork.ts`，
-右下角的方案切换器是 `shared/VersionSwitch.vue`（选定方案后删掉该组件引用即可）。
-开发时访问 `http://localhost:5173/home.html` 逐个对比。
-
 ## 目录
 
 ```
 src/
 ├── data/
 │   ├── profile.ts        # 名字、简介、社交链接、邮箱 ← 先改这里
-│   ├── photos.ts         # 相册数据 ← 换照片改这里
+│   ├── photos.ts         # 照片类型 + 取图地址（数据在 public/photos.json）
+│   ├── gallery.ts        # 运行时加载相册数据与分类
 │   ├── poems.json        # 诗词正文（242 首）
 │   ├── poems.ts          # 诗词读取与工具函数
 │   └── coach.ts          # AI 陪练：提示词、场景、接口调用 ← 改这里
@@ -58,6 +43,8 @@ src/
 ├── style.css             # 设计变量 + 全局样式
 └── App.vue
 public/
+├── photos.json           # 相册照片数据 ← 加照片改这里
+├── albums.json           # 相册分类与顺序 ← 加分类改这里
 └── photos/               # 真实照片放这里
 ```
 
@@ -65,12 +52,33 @@ public/
 
 **1. 改名字和信息** —— `src/data/profile.ts`，同时记得改 `index.html` 里的 `<title>`。
 
-**2. 换成自己的照片**
-1. 图片放进 `public/photos/`（jpg / webp，长边 1600px 以内就够）
-2. 在 `src/data/photos.ts` 里给每项补 `src: 'photos/文件名.jpg'`
-3. `category` 写什么词，页面上的筛选按钮就自动多一个
+**2. 换照片 / 加分类（改 JSON 即可，不用动代码）**
 
-留空 `src` 也不会开天窗——会自动生成一张同色系的抽象封面兜底。
+相册数据是运行时从 `public/` 读取的，改完 push 就生效，不需要改 Vue、也不需要重新构建：
+
+- **加一张照片**：图片放进 `public/photos/`，然后在 `public/photos.json` 里加一条
+
+  ```json
+  { "id": "p13", "title": "暴雨前的云", "category": "风景", "date": "2026.08",
+    "seed": 151, "palette": "mist", "src": "photos/storm.webp" }
+  ```
+
+  `src` 留空会自动生成同色系的抽象封面兜底，所以可以先建条目、后换图。
+  `src` 填完整的 `https://` 地址也可以（图片放在图床/对象存储时）。
+
+- **加一个分类**：在 `public/albums.json` 里加一条
+
+  ```json
+  { "id": "travel", "name": "旅行", "order": 4, "visible": true }
+  ```
+
+  `name` 要和照片的 `category` 一致；`order` 决定筛选栏顺序；`visible: false` 会让这个分类
+  不在筛选栏出现（照片本身仍可通过链接访问，属于「不列出」而非「加密」）。
+  没在 `albums.json` 里登记的分类会自动追加到筛选栏末尾，不会被吞掉。
+
+- 图片尺寸：长边 1600px 以内、WebP 或质量 80 的 JPEG、单张 300KB 以内。
+  git 会永久保留历史，别把相机原图直接提交。
+- 注意：`yarn preview` 读的是 `dist/`，改了 `public/` 要重新 `yarn build`；`yarn dev` 实时生效。
 
 **3. 诗词（已接入）**
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { projects } from '@/data/projects'
-const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.webp`
+const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
 </script>
 
 <template>

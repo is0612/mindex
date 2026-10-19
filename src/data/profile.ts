@@ -12,12 +12,11 @@ export const profile = {
   tagline: '把灵感变成作品，也给每一份好奇留个位置。',
   eyebrow: 'PORTFOLIO · 2026',
   bio: '白天写代码，晚上写几句不成调的诗。相机常年放在包里，偶尔也能拍到一点好东西。',
-  email: 'hello@example.com',
+  // 真实邮箱尚未填写时留空，导航和页脚会自动隐藏邮件入口。
+  email: '',
   location: '杭州',
   socials: [
     { label: 'GitHub', href: 'https://github.com/is0612' },
-    { label: '豆瓣', href: 'https://www.douban.com/' },
-    { label: '即刻', href: 'https://web.okjike.com/' },
   ] as SocialLink[],
 }
 

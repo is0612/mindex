@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
         </a>
       </nav>
 
-      <a class="mail" :href="`mailto:${profile.email}`">写信给我</a>
+      <a v-if="profile.email" class="mail" :href="`mailto:${profile.email}`">写信给我</a>
     </div>
   </header>
 </template>

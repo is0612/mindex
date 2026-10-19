@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { profile } from '@/data/profile'
 
-const heroArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.webp`
+const heroArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
 </script>
 
 <template>

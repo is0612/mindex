@@ -19,7 +19,7 @@ const year = new Date().getFullYear()
         <a v-for="social in profile.socials" :key="social.label" :href="social.href" target="_blank" rel="noopener noreferrer">
           {{ social.label }}
         </a>
-        <a :href="`mailto:${profile.email}`">{{ profile.email }}</a>
+        <a v-if="profile.email" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
       </div>
     </div>
   </footer>

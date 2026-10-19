@@ -3,6 +3,7 @@ import {
   bundledPoems,
   genresOf,
   sortPoems,
+  trimLines,
   yearsOf,
   type Poem,
   type PoemInput,
@@ -62,8 +63,9 @@ function normalize(input: unknown): Poem[] {
     const p = item as Partial<Poem>
     const title = typeof p.title === 'string' ? p.title.trim() : ''
     if (!title) throw new Error(`第 ${i + 1} 首缺少标题`)
-    const body = Array.isArray(p.body) ? p.body.map((l) => String(l)).filter((l) => l.trim()) : []
-    if (!body.length) throw new Error(`《${title}》正文为空`)
+    // 空行要留着：词牌靠它分上下阕
+    const body = Array.isArray(p.body) ? trimLines(p.body.map((l) => String(l))) : []
+    if (!body.some(Boolean)) throw new Error(`《${title}》正文为空`)
     return {
       id: typeof p.id === 'string' && p.id ? p.id : newId(arr as Poem[]),
       title,
@@ -162,7 +164,7 @@ export async function createPoem(input: PoemInput): Promise<Poem> {
     genre: (input.genre ?? '').trim(),
     date: input.date || new Date().toISOString().slice(0, 10),
     volumeNo: Number(input.volumeNo) || 1,
-    body: input.body.filter((l) => l.trim()),
+    body: trimLines(input.body),
   }
   apply([...list, poem])
   saving.value = true
@@ -181,7 +183,7 @@ export async function updatePoem(id: string, input: PoemInput): Promise<void> {
             genre: (input.genre ?? '').trim(),
             date: input.date || p.date,
             volumeNo: Number(input.volumeNo) || 1,
-            body: input.body.filter((l) => l.trim()),
+            body: trimLines(input.body),
           }
         : p,
     ),
@@ -248,7 +250,7 @@ export const stats = computed(() => ({
   total: poems.value.length,
   years: yearsOf(poems.value).length,
   genres: genresOf(poems.value).length,
-  lines: poems.value.reduce((sum, p) => sum + p.body.length, 0),
+  lines: poems.value.reduce((sum, p) => sum + p.body.filter(Boolean).length, 0),
 }))
 
 export { poems, mode, saving, error }

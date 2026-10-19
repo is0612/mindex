@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { bundledPoems, formatDate, type Poem } from '@/data/poems'
+import { bundledPoems, formatDate, trimLines, type Poem } from '@/data/poems'
 import { profile } from '@/data/profile'
 import {
   clearError,
@@ -235,15 +235,11 @@ function closeDraft() {
   formError.value = ''
 }
 
-const draftLines = computed(() =>
-  (draft.value?.body ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean),
-)
+// 一行一句，中间空行留着（词牌分上下阕），只去掉首尾多打的空行
+const draftLines = computed(() => trimLines((draft.value?.body ?? '').split('\n')))
 
 const draftLongest = computed(() =>
-  draftLines.value.reduce((max, line) => Math.max(max, line.length), 0),
+  draftLines.value.filter(Boolean).reduce((max, line) => Math.max(max, line.length), 0),
 )
 
 async function submitDraft() {
@@ -254,7 +250,7 @@ async function submitDraft() {
     formError.value = '标题不能留空'
     return
   }
-  if (!lines.length) {
+  if (!lines.some(Boolean)) {
     formError.value = '正文至少写一句'
     return
   }
@@ -515,7 +511,7 @@ onBeforeUnmount(() => {
               <span v-if="poem.genre" class="tag">{{ poem.genre }}</span>
               <span class="num">{{ formatDate(poem.date) }}</span>
               <span class="num">卷 {{ poem.volumeNo }}</span>
-              <span class="num">{{ poem.body.length }} 句</span>
+              <span class="num">{{ poem.body.filter(Boolean).length }} 行</span>
             </span>
           </button>
 
@@ -525,7 +521,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-if="expanded === poem.id" class="row-preview">
-            <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
+            <p v-for="(line, i) in poem.body" :key="i" :class="{ blank: !line }">{{ line }}</p>
           </div>
         </article>
 
@@ -588,10 +584,10 @@ onBeforeUnmount(() => {
               id="f-body"
               v-model="draft.body"
               rows="10"
-              placeholder="一行一句，句末标点照写，空行会被自动去掉"
+              placeholder="一行一句，句末标点照写；空行会原样留白（词的上下阕之间空一行）"
             />
             <span class="hint">
-              {{ draftLines.length }} 句<template v-if="draftLines.length"> · 最长 {{ draftLongest }} 字</template>
+              {{ draftLines.filter(Boolean).length }} 行<template v-if="draftLongest"> · 最长 {{ draftLongest }} 字</template>
             </span>
           </div>
 
@@ -1117,6 +1113,11 @@ input[type='checkbox'] {
 
 .row-preview p:first-child {
   color: var(--ink);
+}
+
+/* 空行撑满一行，才是真的空一行 */
+.row-preview p.blank::before {
+  content: '\00a0';
 }
 
 .empty {

@@ -66,31 +66,18 @@ export function formatDate(date: string): string {
   return date.replace(/-/g, '.')
 }
 
-/** 句末标点 */
-const TRAILING = /[，。！？、；：,.!?;:]+$/
-
-/** 去掉句末标点，竖排用 */
-export function stripEnd(line: string): string {
-  return line.trim().replace(TRAILING, '')
+/** 去首尾空行，中间空行保留（词分上下阕用） */
+export function trimLines(body: string[]): string[] {
+  const lines = body.map((l) => l.trim())
+  while (lines.length && !lines[0]) lines.shift()
+  while (lines.length && !lines[lines.length - 1]) lines.pop()
+  return lines
 }
 
-export type PoemLayout = 'vertical' | 'flat'
-
-/** 词、句数多或长句的诗横排，其余律绝竖排 */
-export function poemLayout(poem: Poem): PoemLayout {
-  const lines = poem.body.map((l) => l.trim()).filter(Boolean)
-  if (!lines.length) return 'flat'
-  if (poem.genre.includes('词') || poem.title.includes('·')) return 'flat'
-  if (lines.length > 8) return 'flat'
-  const longest = Math.max(...lines.map((l) => stripEnd(l).length))
-  return longest <= 9 ? 'vertical' : 'flat'
-}
-
-/** 今日一首取前几句，竖排时去标点 */
-export function excerpt(poem: Poem, max = 4): { lines: string[]; trimmed: boolean } {
-  const layout = poemLayout(poem)
-  return {
-    lines: poem.body.slice(0, max).map((l) => (layout === 'vertical' ? stripEnd(l) : l.trim())),
-    trimmed: poem.body.length > max,
-  }
+/**
+ * 正文直接按数据里的分行渲染：富文本里怎么排，页面上就怎么排。
+ * 空行（空串）保留，用来分上下阕。
+ */
+export function linesOf(poem: Poem): string[] {
+  return trimLines(poem.body)
 }

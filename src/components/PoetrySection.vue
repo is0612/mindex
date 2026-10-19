@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import FilterTabs from '@/components/FilterTabs.vue'
 import PoemDialog from '@/components/PoemDialog.vue'
-import { excerpt, firstLine, formatDate, poemLayout, poemOfDay, type Poem } from '@/data/poems'
+import { linesOf, firstLine, formatDate, poemOfDay, type Poem } from '@/data/poems'
 import { loadPoems, poems, years } from '@/stores/poetry'
 
 onMounted(loadPoems)
@@ -12,10 +12,9 @@ onMounted(loadPoems)
 const picked = ref<Poem | null>(null)
 const daily = computed<Poem | null>(() => picked.value ?? poemOfDay(poems.value))
 
-const dailyLayout = computed(() => (daily.value ? poemLayout(daily.value) : 'flat'))
-const dailyBody = computed(() =>
-  daily.value ? excerpt(daily.value, 4) : { lines: [], trimmed: false },
-)
+/** 整首完整显示，不截断 */
+const dailyLines = computed<string[]>(() => (daily.value ? linesOf(daily.value) : []))
+const dailyShort = computed(() => dailyLines.value.filter(Boolean).length <= 4)
 
 function swapDaily() {
   const list = poems.value
@@ -70,9 +69,9 @@ watch(activeYear, () => {
         <button class="swap" type="button" @click="swapDaily">换一首</button>
       </header>
 
-      <div class="daily-verse" :class="`is-${dailyLayout}`">
+      <div class="daily-verse" :class="{ 'is-short': dailyShort }">
         <div class="verse-body">
-          <p v-for="(line, i) in dailyBody.lines" :key="i">{{ line }}</p>
+          <p v-for="(line, i) in dailyLines" :key="i" :class="{ blank: !line }">{{ line }}</p>
         </div>
       </div>
 
@@ -84,7 +83,7 @@ watch(activeYear, () => {
           <template v-if="daily.genre">{{ daily.genre }}</template>
           <template v-if="daily.genre && daily.date"> · </template>
           <template v-if="daily.date">{{ formatDate(daily.date) }}</template>
-          <template v-if="dailyBody.trimmed"> · 共 {{ daily.body.length }} 句</template>
+          <template v-if="dailyLines.length > 8"> · 共 {{ dailyLines.length }} 行</template>
         </span>
       </footer>
     </article>
@@ -182,48 +181,36 @@ watch(activeYear, () => {
 
 .daily-verse {
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 30px 0 26px;
-  min-height: 190px;
+  padding: 28px 0 24px;
 }
 
 .verse-body {
-  font-family: var(--font-serif);
-  color: var(--ink);
-}
-
-/* 竖排：line-height 是列宽，letter-spacing 才是字距 */
-.is-vertical .verse-body {
-  writing-mode: vertical-rl;
-  font-size: clamp(18px, 1.6vw, 21px);
-  line-height: 1.78;
-  letter-spacing: 0.16em;
-}
-
-.is-vertical .verse-body p {
-  margin: 0;
-  white-space: nowrap;
-}
-
-/* 列间距，首尾不留才能居中 */
-.is-vertical .verse-body p + p {
-  margin-left: 20px;
-}
-
-/* 横排：长句自己折行 */
-.is-flat .verse-body {
   width: 100%;
-  max-width: 640px;
-  font-size: clamp(15px, 1.15vw, 16.5px);
-  line-height: 2.15;
+  max-width: 660px;
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.1vw, 16.5px);
+  line-height: 2.1;
   letter-spacing: 0.04em;
+  color: var(--ink);
   text-align: center;
   text-wrap: pretty;
 }
 
-.is-flat .verse-body p {
+/* 绝句只有四行，给大一点的字，不然太小一块 */
+.is-short .verse-body {
+  font-size: clamp(17px, 1.35vw, 19px);
+  line-height: 2.15;
+  letter-spacing: 0.08em;
+}
+
+.verse-body p {
   white-space: pre-wrap;
+}
+
+/* 词的上下阕之间：撑满一行高度，才是真的空一行 */
+.verse-body p.blank::before {
+  content: '\00a0';
 }
 
 .daily-foot {
@@ -376,23 +363,17 @@ watch(activeYear, () => {
   }
 
   .daily-verse {
-    padding: 24px 0 20px;
-    min-height: 150px;
+    padding: 22px 0 18px;
   }
 
-  .is-vertical .verse-body {
-    font-size: 17px;
-    line-height: 1.85;
-    letter-spacing: 0.14em;
-  }
-
-  .is-vertical .verse-body p + p {
-    margin-left: 15px;
-  }
-
-  .is-flat .verse-body {
+  .verse-body {
     font-size: 15.5px;
     line-height: 2.05;
+  }
+
+  .is-short .verse-body {
+    font-size: 17px;
+    line-height: 2.1;
   }
 
   .grid {

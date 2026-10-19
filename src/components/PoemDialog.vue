@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { formatDate, poemLayout, type Poem } from '@/data/poems'
+import { formatDate, linesOf, type Poem } from '@/data/poems'
 
 const props = defineProps<{
   poem: Poem
@@ -12,8 +12,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
-/** 与首页同一套排版规则 */
-const layout = computed(() => poemLayout(props.poem))
+/** 和首页同一套：正文怎么分行就怎么显示 */
+const lines = computed(() => linesOf(props.poem))
 
 const idx = computed(() => props.list.findIndex((p) => p.id === props.poem.id))
 const hasPrev = computed(() => idx.value > 0)
@@ -59,7 +59,7 @@ watch(
   <Teleport to="body">
     <div class="mask" role="dialog" aria-modal="true" :aria-label="poem.title" @click.self="emit('close')">
       <!-- 高度固定：翻页时弹窗不忽高忽低 -->
-      <article class="poem-sheet" :class="`is-${layout}`">
+      <article class="poem-sheet">
         <button class="close" type="button" aria-label="关闭" @click="emit('close')">×</button>
 
         <header class="head">
@@ -68,14 +68,14 @@ watch(
             <span v-if="poem.genre">{{ poem.genre }}</span>
             <span v-if="poem.date" class="dot">·</span>
             <span v-if="poem.date">{{ formatDate(poem.date) }}</span>
-            <span v-if="poem.body.length > 12" class="dot">·</span>
-            <span v-if="poem.body.length > 12">共 {{ poem.body.length }} 句</span>
+            <span v-if="lines.length > 8" class="dot">·</span>
+            <span v-if="lines.length > 8">共 {{ lines.length }} 行</span>
           </p>
         </header>
 
         <div ref="scrollEl" class="lines">
           <div class="verse-body">
-            <p v-for="(line, i) in poem.body" :key="i">{{ line }}</p>
+            <p v-for="(line, i) in lines" :key="i" :class="{ blank: !line }">{{ line }}</p>
           </div>
         </div>
 
@@ -108,8 +108,8 @@ watch(
   flex-direction: column;
   width: min(100%, 580px);
   /* 固定高度，翻页时弹窗和按钮都不动 */
-  height: min(80vh, 620px);
-  padding: 34px 40px 20px;
+  height: min(82vh, 660px);
+  padding: 30px 40px 18px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -119,7 +119,7 @@ watch(
 
 .head {
   flex: 0 0 auto;
-  min-height: 62px;
+  min-height: 54px;
   text-align: center;
 }
 
@@ -145,7 +145,7 @@ watch(
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  padding: 14px 4px 14px 0;
+  padding: 0 6px 0 0;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(71, 104, 157, 0.24) transparent;
@@ -170,41 +170,24 @@ watch(
 }
 
 .verse-body {
+  width: 100%;
   margin: auto;
   font-family: var(--font-serif);
-  color: var(--ink);
-}
-
-/* 竖排：line-height 是列宽，letter-spacing 才是字距 */
-.is-vertical .verse-body {
-  writing-mode: vertical-rl;
-  font-size: clamp(17px, 2.2vw, 20px);
-  line-height: 1.8;
-  letter-spacing: 0.14em;
-}
-
-.is-vertical .verse-body p {
-  margin: 0;
-  white-space: nowrap;
-}
-
-/* 列间距，首尾不留才能居中 */
-.is-vertical .verse-body p + p {
-  margin-left: 26px;
-}
-
-/* 横排 */
-.is-flat .verse-body {
-  width: 100%;
-  text-align: center;
-}
-
-.is-flat .verse-body p {
-  font-size: 17px;
-  line-height: 2.15;
+  font-size: 16.5px;
+  line-height: 1.95;
   letter-spacing: 0.05em;
-  white-space: pre-wrap;
+  color: var(--ink);
+  text-align: center;
   text-wrap: pretty;
+}
+
+.verse-body p {
+  white-space: pre-wrap;
+}
+
+/* 词的上下阕之间：撑满一行高度，才是真的空一行 */
+.verse-body p.blank::before {
+  content: '\00a0';
 }
 
 .foot {
@@ -282,30 +265,20 @@ watch(
 @media (max-width: 620px) {
   .poem-sheet {
     padding: 30px 20px 16px;
-    height: min(86vh, 620px);
+    height: min(86vh, 660px);
   }
 
   .head {
-    min-height: 56px;
+    min-height: 54px;
   }
 
   .title {
     font-size: 21px;
   }
 
-  .is-flat .verse-body p {
+  .verse-body {
     font-size: 16px;
     line-height: 2.05;
-  }
-
-  .is-vertical .verse-body {
-    font-size: 16px;
-    line-height: 1.85;
-    letter-spacing: 0.12em;
-  }
-
-  .is-vertical .verse-body p + p {
-    margin-left: 18px;
   }
 }
 

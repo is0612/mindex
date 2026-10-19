@@ -1,0 +1,241 @@
+/* ============================================================
+   方案 03 · 轻盈玻璃（蓝天光感）
+   关键词：天空渐变、毛玻璃卡片、大圆角、胶囊控件、柔和投影
+   所有内容都放在"浮起来的白玻璃"上，界面是一种天气。
+   ============================================================ */
+
+:root {
+  --sky: #eaf3fc;
+  --card: rgba(255, 255, 255, 0.62);
+  --card-strong: rgba(255, 255, 255, 0.82);
+  --card-line: rgba(255, 255, 255, 0.9);
+
+  --ink: #16283a;
+  --ink-2: #41566b;
+  --ink-3: #7b8ea0;
+  --ink-4: #a4b4c4;
+
+  --blue: #2f7cd6;
+  --blue-2: #6aa7ec;
+  --blue-deep: #1e5da8;
+
+  --radius: 26px;
+  --radius-sm: 16px;
+
+  --font: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+
+  --maxw: 1120px;
+  --nav-h: 68px;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15.5px;
+  line-height: 1.8;
+  background-color: var(--sky);
+  background-image:
+    radial-gradient(52rem 36rem at 12% -8%, rgba(255, 214, 168, 0.5), transparent 62%),
+    radial-gradient(56rem 40rem at 96% 4%, rgba(106, 167, 236, 0.42), transparent 64%),
+    radial-gradient(48rem 36rem at 50% 110%, rgba(160, 200, 240, 0.55), transparent 66%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(47, 124, 214, 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.shell {
+  width: min(100% - 64px, var(--maxw));
+  margin-inline: auto;
+}
+
+.section {
+  padding: 84px 0;
+  scroll-margin-top: calc(var(--nav-h) + 12px);
+}
+
+/* 章节头：一行小徽章 + 标题 */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.head__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: var(--card-strong);
+  border: 1px solid var(--card-line);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--blue-deep);
+  box-shadow: 0 10px 24px -18px rgba(30, 93, 168, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.head h2 {
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  color: var(--ink);
+}
+
+.head__note {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* 玻璃卡基类 */
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 24px 50px -34px rgba(30, 93, 168, 0.5);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+}
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 26px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, var(--blue), var(--blue-2));
+  box-shadow: 0 16px 30px -18px rgba(30, 93, 168, 0.9);
+  transition:
+    transform 0.3s var(--ease),
+    box-shadow 0.3s var(--ease),
+    filter 0.3s var(--ease);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 22px 38px -20px rgba(30, 93, 168, 0.95);
+}
+
+.btn--ghost {
+  background: var(--card-strong);
+  color: var(--blue-deep);
+  border: 1px solid var(--card-line);
+  box-shadow: 0 12px 26px -20px rgba(30, 93, 168, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.btn--ghost:hover {
+  filter: none;
+  background: #fff;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.8s var(--ease),
+    transform 0.8s var(--ease);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    width: calc(100% - 40px);
+  }
+
+  .section {
+    padding: 60px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

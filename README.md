@@ -15,6 +15,22 @@ npm run build    # 产物在 dist/
 npm run preview  # 本地预览 dist
 ```
 
+## 主页方案
+
+同一份内容（`src/data/`），四套可对比的主页，构建入口见 `vite.config.ts`：
+
+| 入口 | 地址 | 设计语言 |
+| --- | --- | --- |
+| 方案索引 | `/home.html` | 三套方案的对比入口页，从这里开始看 |
+| 01 编辑杂志 | `/home-editorial.html` | 暖纸、宋体、发丝线、竖排诗词、首字下沉 |
+| 02 瑞士极简 | `/home-swiss.html` | 黑白灰 + 正红、强栅格、1px 黑线、反色交互、诗词表格 |
+| 03 轻盈玻璃 | `/home-glass.html` | 天空渐变、毛玻璃卡片、大圆角、渐变按钮 |
+| 旧版 v0 | `/index.html` | 最早的暖纸墨绿版，未受三套方案影响 |
+
+三套方案的源码在 `src/versions/<name>/`，共享的程序化配图在 `src/versions/shared/artwork.ts`，
+右下角的方案切换器是 `shared/VersionSwitch.vue`（选定方案后删掉该组件引用即可）。
+开发时访问 `http://localhost:5173/home.html` 逐个对比。
+
 ## 目录
 
 ```

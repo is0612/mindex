@@ -1,8 +1,13 @@
 /**
  * 作品集展示数据。
- * 项目介绍是第一版草稿；正式公开前可在这里修改标题、标签、状态和链接。
- * 只有确认存在的公开地址才会显示“查看项目”按钮。
+ * 顺序即页面上的展示顺序：子夜酒馆 → 角色卡分享平台 → 个人主页。
+ * 只有确认存在的公开地址才会显示链接按钮。
  */
+export interface ProjectLink {
+  label: string
+  href: string
+}
+
 export interface PortfolioProject {
   id: string
   title: string
@@ -10,21 +15,11 @@ export interface PortfolioProject {
   description: string
   tags: string[]
   stage: string
-  visual: 'cat' | 'tavern' | 'web'
-  href?: string
-  linkLabel?: string
+  visual: 'tavern' | 'cards' | 'web'
+  links?: ProjectLink[]
 }
 
 export const projects: PortfolioProject[] = [
-  {
-    id: 'ai-desktop-pet',
-    title: 'AI 桌宠 · 角色陪伴',
-    subtitle: 'CHARACTER / AI',
-    description: '围绕原创蓝白猫娘，探索桌面陪伴、角色状态与 AI 对话体验。',
-    tags: ['AI', '角色设计', '桌面端'],
-    stage: '原型探索',
-    visual: 'cat',
-  },
   {
     id: 'nocturne-tavern',
     title: '子夜酒馆',
@@ -35,6 +30,19 @@ export const projects: PortfolioProject[] = [
     visual: 'tavern',
   },
   {
+    id: 'open-character-cards',
+    title: '角色卡分享平台',
+    subtitle: 'CHARACTER CARDS',
+    description: '开源的角色卡分享站点，用来发布、浏览与整理原创角色设定，支持标签检索与链接分享。',
+    tags: ['开源', '角色卡', 'Web'],
+    stage: '在线运行',
+    visual: 'cards',
+    links: [
+      { label: '访问站点', href: 'https://is0612.github.io/open-character-cards/' },
+      { label: 'GitHub', href: 'https://github.com/is0612/open-character-cards' },
+    ],
+  },
+  {
     id: 'mindex',
     title: '个人主页 · Mindex',
     subtitle: 'PERSONAL SPACE',
@@ -42,7 +50,6 @@ export const projects: PortfolioProject[] = [
     tags: ['Vue 3', 'TypeScript', 'Vite'],
     stage: '在线迭代',
     visual: 'web',
-    href: 'https://github.com/is0612/mindex',
-    linkLabel: '查看 GitHub 源码',
+    links: [{ label: '查看 GitHub 源码', href: 'https://github.com/is0612/mindex' }],
   },
 ]

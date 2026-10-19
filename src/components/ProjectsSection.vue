@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { projects } from '@/data/projects'
-const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
 </script>
 
 <template>
@@ -8,16 +7,19 @@ const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
     <article v-for="(project, index) in projects" :key="project.id" class="project-card" :style="{ '--card-index': index }">
       <div class="project-art" :class="`project-art--${project.visual}`">
         <div class="art-orbit" aria-hidden="true"></div>
-        <template v-if="project.visual === 'cat'">
-          <img :src="catArt" alt="" loading="lazy" decoding="async" />
-          <span class="art-sticker">AI COMPANION</span>
-        </template>
-        <template v-else-if="project.visual === 'tavern'">
+        <template v-if="project.visual === 'tavern'">
           <span class="art-moon" aria-hidden="true"></span>
           <span class="art-star art-star--one" aria-hidden="true">✦</span>
           <span class="art-star art-star--two" aria-hidden="true">✧</span>
           <div class="art-window" aria-hidden="true"><i></i><i></i><i></i></div>
           <span class="art-wordmark">NOCTURNE<br />TAVERN</span>
+        </template>
+        <template v-else-if="project.visual === 'cards'">
+          <div class="art-card-stack" aria-hidden="true">
+            <span class="art-card art-card--1"><i></i></span>
+            <span class="art-card art-card--2"><i></i></span>
+            <span class="art-card art-card--3"><i></i></span>
+          </div>
         </template>
         <template v-else>
           <div class="art-window art-window--web" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -37,10 +39,17 @@ const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
           <li v-for="tag in project.tags" :key="tag">{{ tag }}</li>
         </ul>
         <div class="project-footer">
-          <a v-if="project.href" :href="project.href" target="_blank" rel="noopener noreferrer" class="project-link">
-            {{ project.linkLabel || '查看项目' }} <span aria-hidden="true">↗</span>
+          <a
+            v-for="link in project.links"
+            :key="link.href"
+            :href="link.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="project-link"
+          >
+            {{ link.label }} <span aria-hidden="true">↗</span>
           </a>
-          <span v-else class="project-footnote"><span class="status-dot"></span>{{ project.stage }} · 持续更新</span>
+          <span v-if="!project.links?.length" class="project-footnote"><span class="status-dot"></span>{{ project.stage }} · 持续更新</span>
         </div>
       </div>
     </article>
@@ -53,15 +62,20 @@ const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
 .project-card:hover { transform: translateY(-5px); border-color: rgba(103,145,206,.36); box-shadow: 0 24px 52px -34px rgba(43,76,128,.56); }
 .project-art { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 1.62 / 1; overflow: hidden; isolation: isolate; }
 .project-art::before { content: ''; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.64) .7px, transparent .7px); background-size: 17px 17px; opacity: .48; }
-.project-art--cat { background: linear-gradient(135deg,#dceaff,#eff5ff 58%,#c4d8f6); }
 .project-art--tavern { color: #ecf3ff; background: linear-gradient(135deg,#111d3b,#243d67 60%,#425b85); }
 .project-art--web { color: #456da8; background: linear-gradient(135deg,#edf4ff,#d5e4fb); }
-.project-art--cat img { position: absolute; right: 7%; bottom: -17%; height: 135%; width: auto; max-width: none; filter: drop-shadow(0 9px 14px rgba(59,88,141,.12)); }
+.project-art--cards { color: #456da8; background: linear-gradient(135deg,#eef4ff,#ecebff 56%,#d5e4fb); }
+.art-card-stack { position: absolute; inset: 0; }
+.art-card { position: absolute; top: 15%; width: 30%; height: 64%; border-radius: 12px; border: 1px solid rgba(255,255,255,.92); background: linear-gradient(165deg,#ffffff,#e2ecfd); box-shadow: 0 16px 28px -20px rgba(45,76,128,.6); }
+.art-card--1 { left: 23%; transform: rotate(-10deg); }
+.art-card--2 { left: 35%; top: 12%; z-index: 2; }
+.art-card--3 { left: 47%; transform: rotate(10deg); }
+.art-card i { position: absolute; left: 50%; top: 15%; width: 44%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(150deg,#cfe0fb,#e9e6ff); }
+.art-card::after { content: ''; position: absolute; left: 20%; right: 20%; bottom: 20%; height: 2px; border-radius: 2px; background: rgba(69,109,168,.26); box-shadow: 0 8px 0 rgba(69,109,168,.16), 0 -8px 0 rgba(69,109,168,.16); }
 .art-orbit { position: absolute; top: 5%; left: 13%; width: 72%; aspect-ratio: 1; border: 1px solid rgba(103,143,203,.26); border-radius: 50%; pointer-events: none; }
 .project-art--tavern .art-orbit { top: 11%; width: 75%; border-color: rgba(220,232,255,.23); }
 .project-kind { position: absolute; z-index: 2; top: 14px; left: 15px; max-width: calc(100% - 30px); color: rgba(43,73,120,.73); font-size: 9px; font-weight: 700; letter-spacing: .16em; }
 .project-art--tavern .project-kind { color: rgba(228,238,255,.72); }
-.art-sticker { position: absolute; bottom: 16px; left: 16px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.86); border-radius: 999px; color: #4d6e9e; background: rgba(255,255,255,.68); font-size: 9px; letter-spacing: .1em; backdrop-filter: blur(8px); }
 .art-moon { position: absolute; top: 23%; left: 36%; width: 86px; height: 86px; border-radius: 50%; background: #f7f2da; box-shadow: 0 0 36px rgba(216,226,255,.2); }
 .art-moon::after { content: ''; position: absolute; top: -8px; left: 26px; width: 78px; height: 78px; border-radius: 50%; background: #243d67; }
 .art-star { position: absolute; color: #e6edff; }
@@ -81,7 +95,7 @@ const catArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.svg`
 .project-body p { min-height: 66px; margin-top: 10px; color: var(--ink-2); font-size: 13px; line-height: 1.8; }
 .project-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
 .project-tags li { padding: 4px 8px; border: 1px solid rgba(101,132,179,.15); border-radius: 8px; color: #6a7f9e; background: rgba(242,247,255,.78); font-size: 10px; }
-.project-footer { display: flex; align-items: flex-end; min-height: 30px; margin-top: 16px; }
+.project-footer { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 14px; min-height: 30px; margin-top: 16px; }
 .project-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); font-size: 12px; font-weight: 650; transition: gap .2s ease; }
 .project-link:hover { gap: 12px; }
 .project-footnote { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-3); font-size: 11px; }

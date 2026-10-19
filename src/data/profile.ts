@@ -7,8 +7,8 @@ export interface SocialLink {
 }
 
 export const profile = {
-  name: '沈砚',
-  initial: '砚',
+  name: '没有喵i',
+  initial: '喵',
   tagline: '把灵感变成作品，也给每一份好奇留个位置。',
   eyebrow: 'PORTFOLIO · 2026',
   bio: '白天写代码，晚上写几句不成调的诗。相机常年放在包里，偶尔也能拍到一点好东西。',

@@ -4,34 +4,54 @@ import { navLinks, profile } from '@/data/profile'
 
 const stuck = ref(false)
 const active = ref('')
+/** 0~1 的阅读进度，画成导航底部的细线 */
+const progress = ref(0)
 
 let io: IntersectionObserver | null = null
+let ticking = false
 
-function onScroll() {
+function update() {
+  const doc = document.documentElement
+  const max = doc.scrollHeight - window.innerHeight
   stuck.value = window.scrollY > 8
+  progress.value = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0
+}
+
+/** 滚动事件只负责排队，真正读布局放到下一帧，省掉重复回流 */
+function onScroll() {
+  if (ticking) return
+  ticking = true
+  requestAnimationFrame(() => {
+    ticking = false
+    update()
+  })
 }
 
 onMounted(() => {
-  onScroll()
+  update()
   window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll, { passive: true })
 
   io = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) active.value = `#${entry.target.id}`
+        if (!entry.isIntersecting) continue
+        // 回到首屏时清空高亮，别让上一个区块一直亮着
+        active.value = entry.target.id === 'home' ? '' : `#${entry.target.id}`
       }
     },
     { rootMargin: '-45% 0px -50% 0px' },
   )
 
-  for (const link of navLinks) {
-    const el = document.getElementById(link.href.slice(1))
+  for (const id of ['home', ...navLinks.map((link) => link.href.slice(1))]) {
+    const el = document.getElementById(id)
     if (el) io.observe(el)
   }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onScroll)
   io?.disconnect()
 })
 </script>
@@ -39,8 +59,8 @@ onBeforeUnmount(() => {
 <template>
   <header class="nav" :class="{ 'is-stuck': stuck }">
     <div class="container nav-inner">
-      <a class="brand" href="#home">
-        <span class="brand-seal">{{ profile.initial }}</span>
+      <a class="brand" href="#home" aria-label="回到首页">
+        <span class="brand-seal" aria-hidden="true">{{ profile.initial }}</span>
         <span class="brand-name">{{ profile.name }}</span>
       </a>
 
@@ -50,6 +70,7 @@ onBeforeUnmount(() => {
           :key="link.href"
           :href="link.href"
           :class="{ active: active === link.href }"
+          :aria-current="active === link.href ? 'location' : undefined"
         >
           {{ link.label }}
         </a>
@@ -57,147 +78,182 @@ onBeforeUnmount(() => {
 
       <a v-if="profile.email" class="mail" :href="`mailto:${profile.email}`">写信给我</a>
     </div>
+
+    <span class="progress" :style="{ transform: `scaleX(${progress})` }" aria-hidden="true" />
   </header>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 .nav {
   position: fixed;
-  inset: 0 0 auto 0;
+  inset: 0 0 auto;
   z-index: 50;
-  height: var(--nav-h);
   display: flex;
   align-items: center;
+  height: var(--nav-h);
   border-bottom: 1px solid transparent;
   transition:
-    background 0.35s var(--ease),
-    border-color 0.35s var(--ease),
-    backdrop-filter 0.35s var(--ease);
-}
+    background var(--dur-slow) var(--ease),
+    border-color var(--dur-slow) var(--ease),
+    box-shadow var(--dur-slow) var(--ease);
 
-.nav.is-stuck {
-  background: rgba(246, 243, 236, 0.78);
-  border-bottom-color: var(--line);
-  backdrop-filter: blur(16px) saturate(1.3);
+  &.is-stuck {
+    @include glass(18px, rgba(247, 250, 255, 0.86));
+
+    border-bottom-color: var(--line);
+    box-shadow: 0 6px 24px -22px rgba(36, 65, 111, 0.55);
+  }
 }
 
 .nav-inner {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
 }
 
 .brand {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
+  border-radius: 8px;
+
+  @include focus-ring(4px);
 }
 
 .brand-seal {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  background: var(--seal);
-  color: #fff8f2;
-  font-family: var(--font-serif);
-  font-size: 12px;
-  line-height: 1;
+  width: 24px;
+  height: 24px;
   padding-top: 1px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #86a9e2, #4b70ae);
+  box-shadow: 0 5px 14px -9px rgba(55, 91, 151, 0.8);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  line-height: 1;
 }
 
 .brand-name {
   font-family: var(--font-serif);
   font-size: 18px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
 }
 
 .links {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 4px;
   margin-left: auto;
-}
 
-.links a {
-  position: relative;
-  font-size: 14.5px;
-  color: var(--ink-2);
-  transition: color 0.25s var(--ease);
-}
+  a {
+    position: relative;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-size: 14.5px;
+    transition:
+      color var(--dur) var(--ease),
+      background var(--dur) var(--ease);
 
-.links a::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -5px;
-  width: 0;
-  height: 1px;
-  background: var(--accent);
-  transition: width 0.3s var(--ease);
-}
+    // 选中态：文字变蓝 + 底部一枚短横，不再靠整条下划线
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      width: 14px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--accent);
+      opacity: 0;
+      scale: 0.2 1;
+      translate: -50% 0;
+      transition:
+        scale var(--dur) var(--ease),
+        opacity var(--dur) var(--ease);
+    }
 
-.links a:hover {
-  color: var(--ink);
-}
+    &:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.62);
+    }
 
-.links a:hover::after,
-.links a.active::after {
-  width: 100%;
-}
+    &.active {
+      color: var(--accent);
 
-.links a.active {
-  color: var(--accent);
+      &::after {
+        opacity: 1;
+        scale: 1 1;
+      }
+    }
+
+    @include focus-ring(2px);
+  }
 }
 
 .mail {
   flex-shrink: 0;
-  font-size: 13.5px;
-  color: var(--ink-2);
   padding: 7px 16px;
   border: 1px solid var(--line-2);
   border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 13.5px;
   transition:
-    color 0.25s var(--ease),
-    border-color 0.25s var(--ease),
-    background 0.25s var(--ease);
-}
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
 
-.mail:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: #fff;
-}
-
-@media (max-width: 780px) {
-  .links {
-    gap: 20px;
+  &:hover {
+    border-color: var(--accent);
+    background: #fff;
+    color: var(--accent);
   }
 
-  .links a {
-    font-size: 14px;
-  }
-
-  .mail {
+  @include mq(md) {
     display: none;
+  }
+}
+
+// 阅读进度：2px 渐变细线，滚动时贴着导航底边
+.progress {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--accent), #a5c5f6);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+@include mq(sm) {
+  .nav-inner {
+    gap: 12px;
+  }
+
+  .links {
+    gap: 0;
+
+    a {
+      padding: 6px 8px;
+      font-size: 13px;
+    }
   }
 
   .brand-name {
-    font-size: 16px;
+    font-size: 15px;
+    letter-spacing: 0.06em;
   }
 }
 
-@media (max-width: 520px) {
-  .links {
-    gap: 14px;
-  }
-
-  .links a {
-    font-size: 13px;
-  }
-
+@include mq(xs) {
   .brand-name {
     display: none;
   }

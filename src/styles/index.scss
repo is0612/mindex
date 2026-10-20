@@ -1,0 +1,4 @@
+// 全局样式入口。顺序有意义：令牌 → 基础 → 布局。
+@use 'tokens';
+@use 'base';
+@use 'layout';

@@ -1,6 +1,6 @@
 # 个人主页
 
-Vue 3 + TypeScript + Vite，纯静态、零外部依赖（不加载任何 CDN 字体或图片）。AI 陪练面板只在你点击时才会连一次你自己配的模型接口。
+Vue 3 + TypeScript + Vite + Sass，纯静态、零外部依赖（不加载任何 CDN 字体或图片）。AI 陪练面板只在你点击时才会连一次你自己配的模型接口。
 
 > 构建产物**不能**直接双击 `index.html` 打开：浏览器不允许 `file://` 加载 ES module，会白屏。用 `npm run dev` 或 `npm run preview` 起一个本地服务器。
 >
@@ -14,6 +14,8 @@ npm run dev      # http://localhost:5173
 npm run build    # 产物在 dist/
 npm run preview  # 本地预览 dist
 ```
+
+样式是 Sass（dart-sass，`npm install` 会自动装上）。`vite.config.ts` 里开了 `css.devSourcemap`，浏览器里能直接看到 `.scss` 的行号；`server.watch.ignored` 额外放过编辑器写入的临时文件，避免 Windows 上 watcher 因 `EBUSY` 退出。
 
 ## 目录
 
@@ -38,10 +40,16 @@ src/
 │   ├── CoachPanel.vue    # AI 陪练面板：开始 / 对话 / 复盘
 │   ├── SectionHead.vue   # 标题栏
 │   └── SiteFooter.vue
-├── style.css             # 设计变量 + 全局样式
-└── App.vue
+├── styles/               # Sass 样式体系（全局样式只从这里进）
+│   ├── _vars.scss        # 颜色 / 断点 / 尺寸 / 字体 / 阴影，只有 Sass 变量，不产出 CSS
+│   ├── _tokens.scss      # 把 _vars 的映射输出成 :root 下的 CSS 变量
+│   ├── _mixins.scss      # mq() 断点、卡片、玻璃、焦点环、滚动条、多行截断
+│   ├── _base.scss        # 重置、排版、页面底色、滚动条
+│   ├── _layout.scss      # 容器、区块标题、按钮、渐显、占位框
+│   └── index.scss        # 入口，main.ts 只 import 这一个
+├── App.vue
 public/
-└── photos/               # 首屏立绘（catgirl-hero.png）
+└── photos/               # 首屏立绘（catgirl-hero.webp + png 兜底）
 ```
 
 ## 四件常改的事
@@ -58,6 +66,8 @@ public/
   - 什么都没改过：直接用构建时打包的初始数据。
 - **加一首诗**：以前要手改 JSON，现在去管理页点「新增」；`body` 在表单里一行一句，写完什么样页面上就什么样。
 - **改展示**：`PoetrySection.vue`。第一屏是「今日一首」（同一天永远是同一首，`poemOfDay()` 按日期取模）；下面按年份筛选、每页 9 首。诗词板块和后台共用 `stores/poetry.ts` 的同一份 `poems`，所以后台删掉的诗，回到首页立刻消失。
+  - 长调（超过 10 行）在「今日一首」里只露前 10 行，末尾淡出并给一个「读全文 · 共 N 行」按钮进弹层——否则一首五十多行的词会把整页撑到几千像素。
+  - 年份筛选在窄屏是一条可横向滚动的胶囊栏，不再折成五六行把列表往下推。
 - **排版由内容决定，不由代码猜**：`data/poems.ts` 只做 `linesOf()`——正文 `body` 数组里怎么分行，页面就怎么分行，不做断句、不合并、不竖排。词的上下阕之间在数据里放一个空串 `""`，页面渲染成一整行空白。
   - 现有 218 首已经按下面这套规则烘进 `poems.json`（脚本一次性跑过，之后不再自动改）：
     - **词牌** —— 一句一排，上下阕之间空一行。
@@ -99,7 +109,10 @@ public/
 
 ## 设计说明
 
-- 配色：暖米白底 + 松墨绿主色 + 朱砂点缀，标题走宋体，正文走系统黑体
-- 动效：`v-reveal` 进入视口淡入上浮，`v-reveal="120"` 可加延迟做错落
-- 所有动画都遵守 `prefers-reduced-motion`
-- 代码分割：首屏只加载项目和陪练，诗词（含全部诗词数据）用 `defineAsyncComponent` 拆成独立 chunk，主包因此从 234 KB 降到 111 KB
+- 配色：**月光蓝白** —— `#f2f7ff` 冷白底、`#1b2b49` 墨蓝标题、`#4c6285` 正文、`#3f66a0` 主色、`#4a6fa6` 点缀。主题色只写在 `src/styles/_vars.scss` 的 `$palette` 映射里，编译后变成 `:root` 下的 CSS 变量，组件里统一 `var(--ink)`、`var(--accent)` 这样取。改主题只动这一个文件，不用再去翻覆盖样式。
+- 样式分层：全局样式只有 `src/styles/index.scss` 一个入口；每个 `.vue` 用 `<style scoped lang="scss">`，文件头 `@use '../styles/mixins' as *;` 拿到断点和混入。窄屏统一写 `@include mq(md) { ... }`，不用记具体像素；卡片、玻璃层、焦点环、细滚动条、多行截断都有现成 mixin。
+- 排版：标题走宋体（`--font-serif`），正文走系统黑体（`--font-sans`）；`--ink-3` 已按 WCAG AA 调深到 4.7:1，小字注释不再发灰。
+- 动效：`v-reveal` 进入视口淡入上浮，`v-reveal="120"` 可加延迟做错落；悬停位移用独立的 `translate`，不会被入场动画的 `transform` 覆盖。所有动画都遵守 `prefers-reduced-motion`。
+- 细节：导航吸顶后变毛玻璃，底部有一条阅读进度细线；诗词弹层锁滚动、聚焦到弹层、Tab 在弹层内循环、Esc 关闭并把焦点还给触发按钮。
+- 图片：首屏立绘提供 WebP（约 87 KB）并 `<link rel="preload">`，PNG（约 517 KB）留作兜底；`<picture>` 自动挑浏览器支持的格式。
+- 代码分割：首屏只加载项目和陪练，诗词（含全部诗词数据）用 `defineAsyncComponent` 拆成独立 chunk。

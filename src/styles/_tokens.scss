@@ -1,0 +1,17 @@
+// ============================================================
+// 把 Sass 映射输出成 CSS 自定义属性（运行时主题入口）
+// ============================================================
+@use 'vars' as *;
+
+:root {
+  @each $name, $value in $palette {
+    --#{$name}: #{$value};
+  }
+
+  @each $name, $value in $metrics {
+    --#{$name}: #{$value};
+  }
+
+  color-scheme: light;
+  accent-color: var(--accent);
+}

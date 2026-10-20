@@ -5,7 +5,7 @@ defineProps<{
   options: string[]
   /** 无障碍用的分组名 */
   label?: string
-  /** 右侧统计文字，例如「12 张」 */
+  /** 右侧统计文字，例如「12 首」 */
   count?: string
 }>()
 
@@ -16,13 +16,12 @@ defineEmits<{
 
 <template>
   <div class="toolbar" v-reveal="60">
-    <div class="filters" role="tablist" :aria-label="label">
+    <div class="filters" role="group" :aria-label="label">
       <button
         v-for="option in options"
         :key="option"
         type="button"
-        role="tab"
-        :aria-selected="modelValue === option"
+        :aria-pressed="modelValue === option"
         :class="{ active: modelValue === option }"
         @click="$emit('update:modelValue', option)"
       >
@@ -34,66 +33,90 @@ defineEmits<{
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 .toolbar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
-/* 年份多时在内部换行，统计数字留在右上 */
+// 年份多时横向滚动，不再折成好几行把列表往下推
 .filters {
-  flex: 1 1 auto;
-  min-width: 0;
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 6px;
-}
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 2px 3px;
 
-.filters button {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 13.5px;
-  color: var(--ink-3);
-  transition:
-    color 0.25s var(--ease),
-    background 0.25s var(--ease),
-    border-color 0.25s var(--ease);
-}
+  button {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--ink-3);
+    font-size: 13px;
+    line-height: 1.5;
+    scroll-snap-align: start;
+    transition:
+      color var(--dur) var(--ease),
+      background var(--dur) var(--ease),
+      border-color var(--dur) var(--ease);
 
-.filters button:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.6);
-}
+    @include focus-ring(2px);
 
-.filters button.active {
-  color: var(--accent);
-  background: var(--accent-wash);
-  border-color: rgba(47, 93, 80, 0.16);
-  font-weight: 500;
+    &:hover {
+      background: rgba(255, 255, 255, 0.66);
+      color: var(--ink);
+    }
+
+    &.active {
+      border-color: rgba(63, 102, 160, 0.18);
+      background: var(--accent-wash);
+      color: var(--accent);
+      font-weight: 500;
+    }
+  }
+
+  // 窄屏/中屏才滚：一行塞不下时不让它把版面撑高，也不会只剩一年孤零零换行
+  @include mq(xl) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+
+    @include hide-scrollbar;
+  }
 }
 
 .count {
   flex: 0 0 auto;
-  padding-top: 6px;
+  padding-top: 7px;
+  color: var(--ink-3);
   font-size: 12.5px;
   letter-spacing: 0.08em;
-  color: var(--ink-3);
   white-space: nowrap;
 }
 
-@media (max-width: 560px) {
+@include mq(sm) {
   .toolbar {
-    flex-direction: column;
     gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .filters button {
+    padding: 5px 11px;
+    font-size: 12.5px;
   }
 
   .count {
-    padding-top: 0;
-    align-self: flex-end;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
   }
 }
 </style>

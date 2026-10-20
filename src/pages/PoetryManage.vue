@@ -32,18 +32,21 @@ const page = ref(1)
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
-  let list = poems.value
-  if (year.value !== '全部') list = list.filter((p) => p.date.startsWith(year.value))
-  if (genre.value !== '全部') list = list.filter((p) => p.genre === genre.value)
-  if (q) {
-    list = list.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.body.join('').toLowerCase().includes(q) ||
-        p.genre.toLowerCase().includes(q),
+  const y = year.value
+  const g = genre.value
+  // 单次遍历完成年份、体裁、关键词过滤，避免多次 filter 产生中间数组
+  const list = poems.value.filter((p) => {
+    if (y !== '全部' && !p.date.startsWith(y)) return false
+    if (g !== '全部' && p.genre !== g) return false
+    if (!q) return true
+    return (
+      p.title.toLowerCase().includes(q) ||
+      p.body.join('').toLowerCase().includes(q) ||
+      p.genre.toLowerCase().includes(q)
     )
-  }
-  return order.value === 'desc' ? list : [...list].reverse()
+  })
+  // filter 已返回新数组，原地 reverse 即可，省掉一次拷贝
+  return order.value === 'desc' ? list : list.reverse()
 })
 
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
@@ -80,30 +83,30 @@ function toggle(id: string) {
 }
 
 /* ---------- 多选 ---------- */
-const selected = ref<string[]>([])
+// 用 Set 存选中 id，has 为 O(1)；此前用数组 includes 在列表较大时是 O(n²)
+const selected = ref<Set<string>>(new Set())
 const allPagedSelected = computed(
-  () => paged.value.length > 0 && paged.value.every((p) => selected.value.includes(p.id)),
+  () => paged.value.length > 0 && paged.value.every((p) => selected.value.has(p.id)),
 )
 
 function togglePick(id: string) {
-  selected.value = selected.value.includes(id)
-    ? selected.value.filter((x) => x !== id)
-    : [...selected.value, id]
+  const next = new Set(selected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selected.value = next
 }
 
 function togglePickPage() {
+  const next = new Set(selected.value)
   if (allPagedSelected.value) {
-    const ids = new Set(paged.value.map((p) => p.id))
-    selected.value = selected.value.filter((id) => !ids.has(id))
+    for (const p of paged.value) next.delete(p.id)
   } else {
-    const merged = new Set([...selected.value, ...paged.value.map((p) => p.id)])
-    selected.value = [...merged]
+    for (const p of paged.value) next.add(p.id)
   }
+  selected.value = next
 }
 
-const selectedPoems = computed(() =>
-  poems.value.filter((p) => selected.value.includes(p.id)),
-)
+const selectedPoems = computed(() => poems.value.filter((p) => selected.value.has(p.id)))
 
 /* ---------- 提示条 ---------- */
 interface Toast {
@@ -176,8 +179,9 @@ function askDelete(list: Poem[]) {
     run: async () => {
       const ids = list.map((p) => p.id)
       const n = await deletePoems(ids)
-      selected.value = selected.value.filter((id) => !ids.includes(id))
-      if (expanded.value && ids.includes(expanded.value)) expanded.value = null
+      const gone = new Set(ids)
+      selected.value = new Set([...selected.value].filter((id) => !gone.has(id)))
+      if (expanded.value && gone.has(expanded.value)) expanded.value = null
       toast(`已删除 ${n} 首`, true)
     },
   }
@@ -314,7 +318,7 @@ async function onImport(event: Event) {
     danger: true,
     run: async () => {
       await replacePoems(list)
-      selected.value = []
+      selected.value = new Set()
       expanded.value = null
       toast(`已导入 ${list.length} 首`, true)
     },
@@ -329,7 +333,7 @@ function askRestore() {
     danger: true,
     run: async () => {
       await restoreBundled()
-      selected.value = []
+      selected.value = new Set()
       expanded.value = null
       toast('已恢复初始数据')
     },
@@ -481,10 +485,10 @@ onBeforeUnmount(() => {
         <span class="result">{{ filtered.length }} 首匹配</span>
 
         <transition name="fade">
-          <div v-if="selected.length" class="bulk-actions">
-            <span>已选 {{ selected.length }} 首</span>
+          <div v-if="selected.size" class="bulk-actions">
+            <span>已选 {{ selected.size }} 首</span>
             <button class="danger sm" type="button" @click="askDelete(selectedPoems)">删除所选</button>
-            <button class="link" type="button" @click="selected = []">取消选择</button>
+            <button class="link" type="button" @click="selected = new Set()">取消选择</button>
           </div>
         </transition>
       </section>
@@ -494,12 +498,12 @@ onBeforeUnmount(() => {
           v-for="poem in paged"
           :key="poem.id"
           class="row"
-          :class="{ 'is-open': expanded === poem.id, 'is-picked': selected.includes(poem.id) }"
+          :class="{ 'is-open': expanded === poem.id, 'is-picked': selected.has(poem.id) }"
         >
           <label class="pick-box">
             <input
               type="checkbox"
-              :checked="selected.includes(poem.id)"
+              :checked="selected.has(poem.id)"
               :aria-label="`选择《${poem.title}》`"
               @change="togglePick(poem.id)"
             />
@@ -634,7 +638,9 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 .admin {
   min-height: 100vh;
   padding-bottom: 80px;
@@ -746,7 +752,7 @@ onBeforeUnmount(() => {
 
 .ghost.danger-text:hover,
 .danger.sm {
-  color: #b4453a;
+  color: var(--danger);
   border-color: rgba(180, 69, 58, 0.32);
 }
 
@@ -764,12 +770,12 @@ onBeforeUnmount(() => {
 }
 
 .btn-danger {
-  background: #b4453a;
+  background: var(--danger);
   color: #fff8f6;
 }
 
 .btn-danger:hover {
-  background: #9c3a30;
+  background: var(--danger-2);
 }
 
 .link {
@@ -846,11 +852,11 @@ onBeforeUnmount(() => {
 }
 
 .store.is-ok .dot {
-  background: #3f8a6a;
+  background: var(--good);
 }
 
 .store.is-warn .dot {
-  background: #d08b3a;
+  background: var(--warn);
 }
 
 .store b {
@@ -878,7 +884,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   font-size: 12.5px;
-  color: #a8483c;
+  color: var(--danger);
 }
 
 /* ---------- 筛选 ---------- */
@@ -932,7 +938,7 @@ onBeforeUnmount(() => {
 }
 
 .search .clear:hover {
-  background: rgba(36, 31, 26, 0.06);
+  background: rgba(27, 43, 73, 0.06);
   color: var(--ink);
 }
 
@@ -1191,7 +1197,7 @@ input[type='checkbox'] {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(24, 40, 68, 0.42);
+  background: rgba(15, 27, 48, 0.48);
   backdrop-filter: blur(6px);
   animation: fade 0.2s var(--ease);
 }
@@ -1275,8 +1281,8 @@ input[type='checkbox'] {
   margin-bottom: 12px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(180, 69, 58, 0.08);
-  color: #a8483c;
+  background: var(--danger-wash);
+  color: var(--danger);
   font-size: 12.5px;
 }
 
@@ -1439,11 +1445,10 @@ input[type='checkbox'] {
 
 @media (max-width: 620px) {
   .row {
-    grid-template-columns: 26px minmax(0, 1fr);
-    grid-template-areas:
-      'pick main'
-      'act act';
-    padding: 12px;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    grid-template-areas: 'pick main act';
+    gap: 10px;
+    padding: 10px 12px;
   }
 
   .pick-box {

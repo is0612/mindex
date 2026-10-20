@@ -93,6 +93,9 @@ export function parsePoemsJson(text: string): Poem[] {
 /* ---------------- 加载 ---------------- */
 
 async function fetchFile(): Promise<Poem[] | null> {
+  // /api/poems 只在 vite dev 里存在（vite.config.ts 的 poems-file-api），
+  // 静态部署时连试都不用试，省掉一次 404 和一条控制台报错
+  if (!import.meta.env.DEV) return null
   try {
     const res = await fetch(API, { headers: { Accept: 'application/json' }, cache: 'no-store' })
     if (!res.ok) return null
@@ -246,11 +249,18 @@ export function clearError() {
 export const years = computed(() => yearsOf(poems.value))
 export const genres = computed(() => genresOf(poems.value))
 
-export const stats = computed(() => ({
-  total: poems.value.length,
-  years: yearsOf(poems.value).length,
-  genres: genresOf(poems.value).length,
-  lines: poems.value.reduce((sum, p) => sum + p.body.filter(Boolean).length, 0),
-}))
+export const stats = computed(() => {
+  let lines = 0
+  for (const p of poems.value) {
+    for (const line of p.body) if (line) lines++
+  }
+  // 复用 years / genres 的缓存结果，避免重复遍历
+  return {
+    total: poems.value.length,
+    years: years.value.length,
+    genres: genres.value.length,
+    lines,
+  }
+})
 
 export { poems, mode, saving, error }

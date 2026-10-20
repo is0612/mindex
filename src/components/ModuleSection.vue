@@ -34,17 +34,20 @@ const slots = useSlots()
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 /* 有内容时去掉占位外观，只留间距 */
 .module-slot.is-live {
+  overflow: visible;
+  padding: 0;
   border: 0;
   background: none;
-  padding: 0;
+  box-shadow: none;
   text-align: left;
-  overflow: visible;
-}
 
-.module-slot.is-live::after {
-  content: none;
+  &::after {
+    content: none;
+  }
 }
 </style>

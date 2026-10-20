@@ -16,6 +16,11 @@ const daily = computed<Poem | null>(() => picked.value ?? poemOfDay(poems.value)
 const dailyLines = computed<string[]>(() => (daily.value ? linesOf(daily.value) : []))
 const dailyShort = computed(() => dailyLines.value.filter(Boolean).length <= 4)
 
+/** 长调先露 10 行，其余进弹层读，避免一张卡片把整页撑到几千像素 */
+const DAILY_PREVIEW = 10
+const dailyVisible = computed(() => dailyLines.value.slice(0, DAILY_PREVIEW))
+const dailyClipped = computed(() => dailyLines.value.length > DAILY_PREVIEW)
+
 function swapDaily() {
   const list = poems.value
   if (list.length < 2) return
@@ -69,10 +74,16 @@ watch(activeYear, () => {
         <button class="swap" type="button" @click="swapDaily">换一首</button>
       </header>
 
-      <div class="daily-verse" :class="{ 'is-short': dailyShort }">
+      <div class="daily-verse" :class="{ 'is-short': dailyShort, 'is-clipped': dailyClipped }">
         <div class="verse-body">
-          <p v-for="(line, i) in dailyLines" :key="i" :class="{ blank: !line }">{{ line }}</p>
+          <p v-for="(line, i) in dailyVisible" :key="i" :class="{ blank: !line }">{{ line }}</p>
         </div>
+      </div>
+
+      <div v-if="dailyClipped" class="daily-more">
+        <button class="btn btn-ghost" type="button" @click="openDaily">
+          读全文 <span class="dim">共 {{ dailyLines.length }} 行</span>
+        </button>
       </div>
 
       <footer class="daily-foot">
@@ -83,7 +94,6 @@ watch(activeYear, () => {
           <template v-if="daily.genre">{{ daily.genre }}</template>
           <template v-if="daily.genre && daily.date"> · </template>
           <template v-if="daily.date">{{ formatDate(daily.date) }}</template>
-          <template v-if="dailyLines.length > 8"> · 共 {{ dailyLines.length }} 行</template>
         </span>
       </footer>
     </article>
@@ -142,17 +152,26 @@ watch(activeYear, () => {
   </div>
 </template>
 
-<style scoped>
-/* ---------- 今日一首 ---------- */
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
+// ---------- 今日一首 ----------
 .daily {
-  display: flex;
-  flex-direction: column;
-  padding: 26px 30px 22px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 36px;
+  padding: 26px 30px 20px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28));
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 90% at 50% -20%, rgba(165, 196, 241, 0.22), transparent 60%),
+    var(--surface);
   box-shadow: var(--shadow-sm);
-  margin-bottom: 40px;
+
+  @include mq(md) {
+    margin-bottom: 24px;
+    padding: 20px 18px 16px;
+  }
 }
 
 .daily-head {
@@ -163,54 +182,112 @@ watch(activeYear, () => {
 }
 
 .daily-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--seal);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.24em;
-  color: var(--seal);
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 }
 
 .swap {
-  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
   color: var(--ink-3);
-  transition: color 0.22s var(--ease);
-}
+  font-size: 12.5px;
+  transition:
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
 
-.swap:hover {
-  color: var(--accent);
+  &:hover {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--accent);
+  }
+
+  @include focus-ring(2px);
 }
 
 .daily-verse {
   display: flex;
   justify-content: center;
-  padding: 28px 0 24px;
+  padding: 26px 0 22px;
+
+  // 长词只露 10 行，最后两行淡出，提示还能往下读
+  &.is-clipped {
+    padding-bottom: 4px;
+
+    .verse-body {
+      mask-image: linear-gradient(180deg, #000 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 80%, transparent 100%);
+    }
+  }
+
+  @include mq(md) {
+    padding: 20px 0 16px;
+  }
 }
 
 .verse-body {
   width: 100%;
   max-width: 660px;
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: clamp(15px, 1.1vw, 16.5px);
   line-height: 2.1;
   letter-spacing: 0.04em;
-  color: var(--ink);
   text-align: center;
   text-wrap: pretty;
+
+  p {
+    white-space: pre-wrap;
+  }
+
+  // 词的上下阕之间：撑满一行高度，才是真的空一行
+  p.blank::before {
+    content: '\00a0';
+  }
+
+  // 绝句只有四行，给大一点的字
+  .is-short & {
+    font-size: clamp(17px, 1.35vw, 19px);
+    letter-spacing: 0.08em;
+    line-height: 2.15;
+  }
+
+  @include mq(md) {
+    font-size: 15.5px;
+    line-height: 2.05;
+
+    .is-short & {
+      font-size: 17px;
+      line-height: 2.1;
+    }
+  }
 }
 
-/* 绝句只有四行，给大一点的字，不然太小一块 */
-.is-short .verse-body {
-  font-size: clamp(17px, 1.35vw, 19px);
-  line-height: 2.15;
-  letter-spacing: 0.08em;
-}
+.daily-more {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 18px;
 
-.verse-body p {
-  white-space: pre-wrap;
-}
+  .btn {
+    padding: 7px 18px;
+    font-size: 12.5px;
+  }
 
-/* 词的上下阕之间：撑满一行高度，才是真的空一行 */
-.verse-body p.blank::before {
-  content: '\00a0';
+  .dim {
+    color: var(--ink-3);
+    font-size: 11px;
+  }
 }
 
 .daily-foot {
@@ -220,73 +297,109 @@ watch(activeYear, () => {
   gap: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+
+  @include mq(sm) {
+    gap: 10px;
+  }
 }
 
 .daily-title {
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: 16px;
   letter-spacing: 0.06em;
-  color: var(--ink);
-  transition: color 0.22s var(--ease);
-}
+  transition: color var(--dur) var(--ease);
 
-.daily-title:hover {
-  color: var(--seal);
+  &:hover {
+    color: var(--seal);
+  }
+
+  @include focus-ring(2px);
 }
 
 .daily-meta {
+  color: var(--ink-3);
   font-size: 11.5px;
   letter-spacing: 0.1em;
-  color: var(--ink-3);
   white-space: nowrap;
 }
 
-/* ---------- 列表 ---------- */
+// ---------- 列表 ----------
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 16px;
+
+  @include mq(md) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 8px;
+  overflow: hidden;
+  min-height: 112px;
   padding: 20px 22px 18px;
-  text-align: left;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.42);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  text-align: left;
   transition:
     border-color 0.3s var(--ease),
     background 0.3s var(--ease),
     translate 0.3s var(--ease),
     box-shadow 0.3s var(--ease);
-}
 
-.card:hover {
-  translate: 0 -3px;
-  border-color: var(--line-2);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: var(--shadow-sm);
+  // 悬停时顶部亮起一条渐变
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), #a5c5f6);
+    scale: 0 1;
+    transform-origin: left;
+    transition: scale 0.3s var(--ease);
+  }
+
+  &:hover {
+    translate: 0 -3px;
+    border-color: var(--line-2);
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+
+    &::before {
+      scale: 1 1;
+    }
+  }
+
+  @include mq(md) {
+    min-height: 0;
+    padding: 16px 18px 14px;
+  }
+
+  @include focus-ring(2px);
 }
 
 .card-title {
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: 16.5px;
   letter-spacing: 0.04em;
-  color: var(--ink);
 }
 
 .card-line {
+  @include clamp-lines(2);
+
+  color: var(--ink-2);
   font-family: var(--font-serif);
   font-size: 13.5px;
   line-height: 1.9;
-  color: var(--ink-2);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .card-foot {
@@ -295,14 +408,18 @@ watch(activeYear, () => {
   justify-content: space-between;
   gap: 10px;
   margin-top: 2px;
+  color: var(--ink-3);
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: var(--ink-3);
 }
 
 .card-genre {
   color: var(--seal);
-  opacity: 0.8;
+  opacity: 0.9;
+}
+
+.card-date {
+  font-variant-numeric: tabular-nums;
 }
 
 .more {
@@ -313,9 +430,9 @@ watch(activeYear, () => {
 
 .empty {
   padding: 40px 0;
-  text-align: center;
-  font-size: 13.5px;
   color: var(--ink-3);
+  font-size: 13.5px;
+  text-align: center;
 }
 
 .archive {
@@ -331,54 +448,32 @@ watch(activeYear, () => {
   align-items: center;
   gap: 8px;
   padding: 9px 22px;
-  border-radius: 999px;
   border: 1px solid rgba(91, 124, 177, 0.25);
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.62);
-  font-size: 13.5px;
   color: var(--ink-2);
+  font-size: 13.5px;
   transition:
-    color 0.25s var(--ease),
-    border-color 0.25s var(--ease),
-    background 0.25s var(--ease),
-    transform 0.25s var(--ease);
-}
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    translate var(--dur) var(--ease);
 
-.archive-link span {
-  transition: transform 0.25s var(--ease);
-}
-
-.archive-link:hover {
-  color: var(--accent);
-  border-color: rgba(87, 126, 187, 0.52);
-  background: #fff;
-}
-
-.archive-link:hover span {
-  transform: translateX(3px);
-}
-
-@media (max-width: 720px) {
-  .daily {
-    padding: 20px 18px 18px;
+  span {
+    transition: translate var(--dur) var(--ease);
   }
 
-  .daily-verse {
-    padding: 22px 0 18px;
+  &:hover {
+    translate: 0 -1px;
+    border-color: rgba(87, 126, 187, 0.52);
+    background: #fff;
+    color: var(--accent);
+
+    span {
+      translate: 3px 0;
+    }
   }
 
-  .verse-body {
-    font-size: 15.5px;
-    line-height: 2.05;
-  }
-
-  .is-short .verse-body {
-    font-size: 17px;
-    line-height: 2.1;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
+  @include focus-ring(3px);
 }
 </style>

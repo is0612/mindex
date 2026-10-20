@@ -25,8 +25,9 @@ watch(route, async (next, prev) => {
 
 <template>
   <template v-if="route === 'home'">
+    <a class="skip-link" href="#main">跳到正文</a>
     <TheNav />
-    <main>
+    <main id="main">
       <HeroSection />
 
       <ModuleSection

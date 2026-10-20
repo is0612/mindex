@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDate, linesOf, type Poem } from '@/data/poems'
 
 const props = defineProps<{
@@ -24,23 +24,53 @@ function step(delta: number) {
   if (target) emit('update:poem', target)
 }
 
+const sheetEl = ref<HTMLElement | null>(null)
+let lastFocused: HTMLElement | null = null
+
+/** Tab 在弹层里循环，别跑到背后的页面上 */
+function trapTab(e: KeyboardEvent) {
+  const root = sheetEl.value
+  if (!root) return
+  const items = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => el.offsetParent !== null)
+  if (!items.length) return
+
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
   else if (e.key === 'ArrowLeft') step(-1)
   else if (e.key === 'ArrowRight') step(1)
+  else if (e.key === 'Tab') trapTab(e)
 }
 
 let prevOverflow = ''
 
 onMounted(() => {
+  lastFocused = document.activeElement as HTMLElement | null
   window.addEventListener('keydown', onKey)
   prevOverflow = document.body.style.overflow
   document.body.style.overflow = 'hidden'
+  nextTick(() => sheetEl.value?.focus())
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   document.body.style.overflow = prevOverflow
+  // 关掉弹层后把焦点还给刚才点击的那张卡片
+  lastFocused?.focus?.()
 })
 
 const scrollEl = ref<HTMLElement | null>(null)
@@ -59,7 +89,7 @@ watch(
   <Teleport to="body">
     <div class="mask" role="dialog" aria-modal="true" :aria-label="poem.title" @click.self="emit('close')">
       <!-- 高度固定：翻页时弹窗不忽高忽低 -->
-      <article class="poem-sheet">
+      <article ref="sheetEl" class="poem-sheet" tabindex="-1">
         <button class="close" type="button" aria-label="关闭" @click="emit('close')">×</button>
 
         <header class="head">
@@ -89,7 +119,9 @@ watch(
   </Teleport>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 .mask {
   position: fixed;
   inset: 0;
@@ -97,8 +129,9 @@ watch(
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(26, 22, 17, 0.46);
+  background: rgba(15, 27, 48, 0.48);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   animation: fade 0.24s var(--ease);
 }
 
@@ -107,14 +140,20 @@ watch(
   display: flex;
   flex-direction: column;
   width: min(100%, 580px);
-  /* 固定高度，翻页时弹窗和按钮都不动 */
+  // 固定高度，翻页时弹窗和按钮都不动
   height: min(82vh, 660px);
   padding: 30px 40px 18px;
-  border-radius: var(--radius);
-  background: var(--surface);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
   animation: rise 0.28s var(--ease);
+  outline: none;
+
+  @include mq(sm) {
+    height: min(86vh, 660px);
+    padding: 30px 20px 16px;
+  }
 }
 
 .head {
@@ -126,127 +165,127 @@ watch(
 .title {
   font-size: 24px;
   letter-spacing: 0.06em;
+
+  @include mq(sm) {
+    font-size: 21px;
+  }
 }
 
 .meta {
   margin-top: 8px;
+  color: var(--ink-3);
   font-size: 11.5px;
   letter-spacing: 0.14em;
-  color: var(--ink-3);
+
+  .dot {
+    margin: 0 6px;
+    opacity: 0.6;
+  }
 }
 
-.meta .dot {
-  margin: 0 6px;
-  opacity: 0.6;
-}
-
-/* 中间内容区，超长时内部滚动 */
+// 中间内容区，超长时内部滚动
 .lines {
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  display: flex;
-  padding: 0 6px 0 0;
   overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(71, 104, 157, 0.24) transparent;
-}
+  padding: 0 8px 0 0;
 
-.lines::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-
-.lines::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(71, 104, 157, 0.22);
-}
-
-.lines::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 104, 157, 0.4);
-}
-
-.lines::-webkit-scrollbar-track {
-  background: transparent;
+  @include thin-scrollbar(rgba(71, 104, 157, 0.24));
 }
 
 .verse-body {
   width: 100%;
   margin: auto;
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: 16.5px;
   line-height: 1.95;
   letter-spacing: 0.05em;
-  color: var(--ink);
   text-align: center;
   text-wrap: pretty;
-}
 
-.verse-body p {
-  white-space: pre-wrap;
-}
+  p {
+    white-space: pre-wrap;
+  }
 
-/* 词的上下阕之间：撑满一行高度，才是真的空一行 */
-.verse-body p.blank::before {
-  content: '\00a0';
+  // 词的上下阕之间：撑满一行高度，才是真的空一行
+  p.blank::before {
+    content: '\00a0';
+  }
+
+  @include mq(sm) {
+    font-size: 16px;
+    line-height: 2.05;
+  }
 }
 
 .foot {
-  flex: 0 0 auto;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
-}
 
-.foot button {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-2);
-  font-size: 12.5px;
-  color: var(--ink-2);
-  transition:
-    color 0.2s var(--ease),
-    border-color 0.2s var(--ease),
-    background 0.2s var(--ease);
-}
+  button {
+    padding: 6px 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-size: 12.5px;
+    transition:
+      color var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease),
+      background var(--dur-fast) var(--ease);
 
-.foot button:not(:disabled):hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: #fff;
-}
+    &:not(:disabled):hover {
+      border-color: var(--accent);
+      background: #fff;
+      color: var(--accent);
+    }
 
-.foot button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    @include focus-ring(2px);
+  }
 }
 
 .pos {
+  color: var(--ink-3);
   font-size: 11.5px;
   letter-spacing: 0.1em;
-  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .close {
   position: absolute;
   top: 10px;
   right: 14px;
-  width: 32px;
-  height: 32px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
+  color: var(--ink-3);
   font-size: 20px;
   line-height: 1;
-  color: var(--ink-3);
   transition:
-    color 0.2s var(--ease),
-    background 0.2s var(--ease);
-}
+    color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    rotate var(--dur-fast) var(--ease);
 
-.close:hover {
-  color: var(--ink);
-  background: rgba(36, 31, 26, 0.05);
+  &:hover {
+    background: rgba(27, 43, 73, 0.06);
+    color: var(--ink);
+    rotate: 90deg;
+  }
+
+  @include focus-ring(2px);
 }
 
 @keyframes fade {
@@ -259,26 +298,6 @@ watch(
   from {
     opacity: 0;
     transform: translateY(10px);
-  }
-}
-
-@media (max-width: 620px) {
-  .poem-sheet {
-    padding: 30px 20px 16px;
-    height: min(86vh, 660px);
-  }
-
-  .head {
-    min-height: 54px;
-  }
-
-  .title {
-    font-size: 21px;
-  }
-
-  .verse-body {
-    font-size: 16px;
-    line-height: 2.05;
   }
 }
 

@@ -79,12 +79,17 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // Sass 源映射：浏览器里能直接定位到 .scss 行号
+  css: {
+    devSourcemap: true,
+  },
   server: {
     port: 5173,
     open: true,
-    // 诗词后台自己写这个文件，别让 HMR 每次保存都整页刷新
+    // 诗词后台自己写这个文件，别让 HMR 每次保存都整页刷新；
+    // 编辑器/工具写入时的临时目录也跳过，否则 Windows 上 watcher 会 EBUSY 退出
     watch: {
-      ignored: ['**/src/data/poems.json'],
+      ignored: ['**/src/data/poems.json', '**/*.tmpdir/**', '**/*.tmp'],
     },
   },
 })

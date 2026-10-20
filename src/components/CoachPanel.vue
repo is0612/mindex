@@ -437,7 +437,9 @@ const verdictTone = computed(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../styles/mixins' as *;
+
 .coach {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -564,7 +566,7 @@ const verdictTone = computed(() => {
 
 .settings-note a {
   color: var(--accent);
-  border-bottom: 1px solid rgba(47, 93, 80, 0.3);
+  border-bottom: 1px solid rgba(63, 102, 160, 0.35);
 }
 
 .settings-actions {
@@ -647,7 +649,7 @@ const verdictTone = computed(() => {
 
 .link {
   color: var(--accent);
-  border-bottom: 1px solid rgba(47, 93, 80, 0.3);
+  border-bottom: 1px solid rgba(63, 102, 160, 0.35);
   padding: 0;
   font-size: inherit;
 }
@@ -700,10 +702,11 @@ const verdictTone = computed(() => {
 }
 
 .me .bubble {
-  border: 1px solid rgba(47, 93, 80, 0.16);
+  border: 1px solid transparent;
   border-bottom-right-radius: 4px;
-  background: var(--accent-wash);
-  color: var(--ink);
+  background: linear-gradient(135deg, #4f77b1, #3f66a0);
+  box-shadow: 0 8px 18px -14px rgba(56, 91, 147, 0.9);
+  color: #f7faff;
 }
 
 .typing {
@@ -828,11 +831,11 @@ const verdictTone = computed(() => {
 }
 
 .verdict.warn .verdict-tag {
-  color: #a8752f;
+  color: var(--warn);
 }
 
 .verdict.bad .verdict-tag {
-  color: var(--seal);
+  color: var(--danger);
 }
 
 .verdict-reason {
@@ -897,7 +900,7 @@ const verdictTone = computed(() => {
 .fix-original {
   color: var(--ink-2);
   text-decoration: line-through;
-  text-decoration-color: rgba(36, 31, 26, 0.3);
+  text-decoration-color: rgba(27, 43, 73, 0.32);
 }
 
 .fix-better {
@@ -918,14 +921,14 @@ const verdictTone = computed(() => {
   margin-top: 18px;
   padding: 14px 16px;
   border-radius: 10px;
-  border-left: 3px solid var(--seal);
-  background: rgba(180, 83, 58, 0.06);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-wash);
 }
 
 .next-label {
   font-size: 11px;
   letter-spacing: 0.14em;
-  color: var(--seal);
+  color: var(--accent);
 }
 
 .next-text {
@@ -940,7 +943,7 @@ const verdictTone = computed(() => {
   border-radius: 10px;
   background: #fff;
   border: 1px solid var(--line);
-  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.8;
   color: var(--ink-2);
@@ -962,10 +965,11 @@ const verdictTone = computed(() => {
 .err {
   margin: 0;
   padding: 10px 20px;
+  border-bottom: 1px solid rgba(180, 69, 58, 0.14);
+  background: var(--danger-wash);
+  color: var(--danger);
   font-size: 13px;
   line-height: 1.7;
-  color: var(--seal);
-  background: rgba(180, 83, 58, 0.06);
 }
 
 @media (max-width: 720px) {

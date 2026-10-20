@@ -44,8 +44,6 @@ body {
 .nav .brand-seal { background: linear-gradient(145deg,#86a9e2,#4b70ae) !important; border-radius: 8px !important; box-shadow: 0 5px 14px -9px rgba(55,91,151,.8); }
 .nav .mail { border-color: rgba(91,124,177,.23); background: rgba(255,255,255,.42); }
 .nav .mail:hover { background: #fff; }
-#gallery .card { border-radius: 18px; background: #dfe9f8; box-shadow: var(--shadow-sm); }
-#gallery .card:hover { box-shadow: var(--shadow-md); }
 .module-slot { border-color: rgba(89,125,182,.26); border-radius: 20px; background: linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.4)); box-shadow: inset 0 1px 0 rgba(255,255,255,.8); }
 [role='dialog'] { color: var(--ink); }
 @media (max-width: 720px) { .section { padding-top: 72px; padding-bottom: 72px; } }

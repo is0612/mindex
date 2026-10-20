@@ -46,7 +46,7 @@ export const projects: PortfolioProject[] = [
     id: 'mindex',
     title: '个人主页 · Mindex',
     subtitle: 'PERSONAL SPACE',
-    description: '用 Vue 3、TypeScript 与 Vite 整理项目、相册、诗词和 AI 陪练，持续打磨个人数字空间。',
+    description: '用 Vue 3、TypeScript 与 Vite 整理项目、诗词和 AI 陪练，持续打磨个人数字空间。',
     tags: ['Vue 3', 'TypeScript', 'Vite'],
     stage: '在线迭代',
     visual: 'web',

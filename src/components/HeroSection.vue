@@ -15,7 +15,7 @@ const heroArt = `${import.meta.env.BASE_URL}photos/catgirl-hero.png`
 
         <div class="hero-actions rise" style="animation-delay: .24s">
           <a class="btn btn-solid" href="#projects">浏览项目 <span aria-hidden="true">↗</span></a>
-          <a class="btn btn-ghost" href="#gallery">看看相册</a>
+          <a class="btn btn-ghost" href="#poetry">读几句诗</a>
           <a class="btn btn-ghost" href="#ai">AI 陪练</a>
         </div>
 

@@ -3,7 +3,6 @@ import { defineAsyncComponent, nextTick, watch } from 'vue'
 import TheNav from '@/components/TheNav.vue'
 import HeroSection from '@/components/HeroSection.vue'
 import ProjectsSection from '@/components/ProjectsSection.vue'
-import GallerySection from '@/components/GallerySection.vue'
 import ModuleSection from '@/components/ModuleSection.vue'
 import CoachPanel from '@/components/CoachPanel.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -38,8 +37,6 @@ watch(route, async (next, prev) => {
       >
         <ProjectsSection />
       </ModuleSection>
-
-      <GallerySection />
 
       <ModuleSection
         id="poetry"

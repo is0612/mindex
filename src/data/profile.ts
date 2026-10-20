@@ -22,7 +22,6 @@ export const profile = {
 
 export const navLinks = [
   { label: '项目', href: '#projects' },
-  { label: '相册', href: '#gallery' },
   { label: '诗词', href: '#poetry' },
   { label: 'AI 陪练', href: '#ai' },
 ]

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 胶囊式筛选栏，相册与诗词共用 */
+/** 胶囊式筛选栏，诗词按年份筛选用 */
 defineProps<{
   modelValue: string
   options: string[]

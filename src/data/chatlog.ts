@@ -50,6 +50,8 @@ const HEAD_TIME_FIRST = new RegExp(String.raw`^${DATE}\s+${TIME}\s+(\S.{0,30}?)\
 const INLINE_LINE = /^([^\s：:/\\]{1,20})[：:]\s*(.+)$/
 /** 纯时间行，别让它被单行规则当成「12：30」 */
 const TIME_ONLY = /^\d{1,2}:\d{2}(?::\d{2})?$/
+/** 整行只有一个完整时间戳：`2026年10月22日  9:33` */
+const STAMP_ONLY = new RegExp(String.raw`^\d{4}[-/年]\d{1,2}[-/月]\d{1,2}日?\s+${TIME}$`)
 
 /** 去掉 QQ 号后缀、尖括号之类的装饰 */
 function cleanName(raw: string): string {
@@ -63,9 +65,24 @@ function cleanName(raw: string): string {
 const NOISE =
   /\[(图片|照片|视频|语音|动画表情|表情|文件|位置|名片|链接|转账|红包|语音通话|视频通话|聊天记录|收藏|音乐|小程序|QQ表情)\]/g
 
+/** 去掉标记后残留的媒体文件名：`微信图片_20261019224422_1031.dat` */
+const FILENAME = /[\w\u4e00-\u9fa5-]+\.(?:dat|jpg|jpeg|png|gif|webp|heic|amr|silk|mp3|m4a|wav|mp4)\b/gi
+
+/** 所有清理正文的地方都走这里，免得漏掉一种 */
+function stripNoise(text: string): string {
+  return text.replace(NOISE, '').replace(FILENAME, '').trim()
+}
+
 function isNoise(text: string): boolean {
   if (!text.trim()) return true
-  return text.replace(NOISE, '').replace(/[\s,.，。!！?？~～]/g, '').length === 0
+  return stripNoise(text).replace(/[\s,.，。!！?？~～]/g, '').length === 0
+}
+
+/** 纯数字、纯符号、单个标点——验证码、编号这类，对提炼人设没半点用，还白占字数 */
+function isUseless(text: string): boolean {
+  const t = stripNoise(text)
+  if (!t) return true
+  return /^[\d\s.,:;!?~_\-/\\（）()【】[\]「」]+$/.test(t)
 }
 
 /** 按「头行 + 后续内容行」切分。两套头行正则都把说话人放在第 1 个捕获组 */
@@ -86,7 +103,7 @@ function parseWithHead(rawLines: string[], re: RegExp): ChatLine[] {
       flush()
       speaker = cleanName(m[1])
     } else if (speaker) {
-      buf.push(line.replace(NOISE, '').trim())
+      buf.push(stripNoise(line))
     }
   }
   flush()
@@ -100,11 +117,54 @@ function parseInline(rawLines: string[]): ChatLine[] {
     if (TIME_ONLY.test(line)) continue
     const m = line.match(INLINE_LINE)
     if (!m) continue
-    const text = m[2].replace(NOISE, '').trim()
+    const text = stripNoise(m[2])
     if (isNoise(text)) continue
     const speaker = cleanName(m[1])
     if (!speaker) continue
     out.push({ speaker, text })
+  }
+  return out
+}
+
+/**
+ * 三行一组：名字 / 时间 / 内容，每组之间空行隔开。
+ * 微信「导出聊天记录」的 txt 就是这种：
+ *
+ *   lily
+ *   2026年10月22日  9:18
+ *   好的
+ *
+ * stampFirst 为 true 时顺序反过来：时间 / 名字 / 内容。
+ */
+function parseBlocked(rawLines: string[], stampFirst: boolean): ChatLine[] {
+  const heads: number[] = [] // 名字所在的行号
+  for (let i = 0; i < rawLines.length - 1; i++) {
+    const cur = rawLines[i]
+    const nxt = rawLines[i + 1]
+    if (stampFirst) {
+      if (STAMP_ONLY.test(cur) && nxt && nxt.length <= 30 && !STAMP_ONLY.test(nxt)) heads.push(i + 1)
+    } else if (cur && cur.length <= 30 && !STAMP_ONLY.test(cur) && STAMP_ONLY.test(nxt)) {
+      heads.push(i)
+    }
+  }
+  if (heads.length < 2) return []
+
+  const blockStart = (h: number) => (stampFirst ? heads[h] - 1 : heads[h])
+  const out: ChatLine[] = []
+
+  for (let h = 0; h < heads.length; h++) {
+    const nameIdx = heads[h]
+    const speaker = cleanName(rawLines[nameIdx])
+    if (!speaker) continue
+    const from = stampFirst ? nameIdx + 1 : nameIdx + 2
+    const to = h + 1 < heads.length ? blockStart(h + 1) : rawLines.length
+    const text = rawLines
+      .slice(from, Math.max(from, to))
+      .map((l) => stripNoise(l))
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+    if (text && !isNoise(text)) out.push({ speaker, text })
   }
   return out
 }
@@ -118,21 +178,34 @@ function countSpeakers(lines: ChatLine[]): SpeakerCount[] {
 }
 
 /**
- * 三套规则都跑一遍，取认出的条数最多的。
- * 不做「严格校验」，因为导出格式五花八门，能多认一条就多一条信息。
+ * 几套规则都跑一遍，挑一个最靠谱的。
+ *
+ * 只看条数会被带偏：比如「名字 / 时间 / 内容」格式如果拿「时间在前」的规则去切，
+ * 每条的内容都会变成下一条的「名字」，条数照样很多，但说话人会有几十个。
+ * 所以先按说话人数筛一遍——正常对话就两三个人，超过八个基本是切错了。
  */
 export function parseChatLog(raw: string): ParseResult {
   const text = raw.replace(/\r\n?/g, '\n').replace(/\u200b/g, '')
   const rawLines = text.split('\n').map((l) => l.trim())
 
   const candidates: Array<{ mode: string; lines: ChatLine[] }> = [
+    { mode: '导出 · 名字/时间/内容', lines: parseBlocked(rawLines, false) },
+    { mode: '导出 · 时间/名字/内容', lines: parseBlocked(rawLines, true) },
     { mode: '微信 · 名字在前', lines: parseWithHead(rawLines, HEAD_NAME_FIRST) },
     { mode: 'QQ · 时间在前', lines: parseWithHead(rawLines, HEAD_TIME_FIRST) },
     { mode: '单行 · 名字：内容', lines: parseInline(rawLines) },
   ]
 
-  let best = candidates[0]
-  for (const c of candidates) if (c.lines.length > best.lines.length) best = c
+  const ranked = candidates
+    .filter((c) => c.lines.length > 0)
+    .map((c) => ({ ...c, kinds: countSpeakers(c.lines).length }))
+
+  const sane = ranked.filter((c) => c.kinds <= 8)
+  const pool = sane.length ? sane : ranked
+
+  let best = pool[0]
+  for (const c of pool) if (c.lines.length > best.lines.length) best = c
+  if (!best) return { lines: [], speakers: [], mode: '一条都没认出来' }
 
   // 只有一个人的记录没法提炼关系，等于解析失败
   const speakers = countSpeakers(best.lines)
@@ -194,14 +267,16 @@ export function buildSample(
   maxItems = 360,
   maxChars = 6000,
 ): { text: string; stats: SampleStats } {
-  const theirs = lines.filter((l) => l.speaker !== me)
+  const allTheirs = lines.filter((l) => l.speaker !== me)
+  // 验证码、编号这类纯数字先剔掉，别白占字数
+  const theirs = allTheirs.filter((l) => !isUseless(l.text))
   const picked = sampleEvenly(theirs, maxItems)
 
   let redacted = 0
   const rows: string[] = []
   let chars = 0
   for (const l of picked) {
-    const safe = redact(l.text)
+    const safe = redact(stripNoise(l.text))
     if (safe !== l.text) redacted++
     const one = safe.replace(/\n+/g, ' ').slice(0, 200)
     if (chars + one.length > maxChars) break
@@ -211,7 +286,7 @@ export function buildSample(
 
   return {
     text: rows.map((r) => `- ${r}`).join('\n'),
-    stats: { total: theirs.length, used: rows.length, chars, redacted },
+    stats: { total: allTheirs.length, used: rows.length, chars, redacted },
   }
 }
 

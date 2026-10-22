@@ -701,6 +701,9 @@ const verdictTone = computed(() => {
           <p class="parse-line">
             认出 <strong>{{ parsed.lines.length }}</strong> 条 · {{ parsed.mode }}
           </p>
+          <p class="persona-hint">
+            先确认下面两个下拉——选反了，提炼出来的是「对方眼里的你」，不是对方。
+          </p>
 
           <div class="field-row">
             <label class="field">
@@ -722,7 +725,7 @@ const verdictTone = computed(() => {
           </div>
 
           <p v-if="sampleStats" class="persona-hint">
-            会取 TA 的 {{ sampleStats.used }} 条（共 {{ sampleStats.total }} 条），约
+            会取「{{ importFrom }}」的 {{ sampleStats.used }} 条（共 {{ sampleStats.total }} 条），约
             {{ sampleStats.chars }} 字<template v-if="sampleStats.redacted">，脱敏 {{ sampleStats.redacted }} 处</template>。
             你自己说的话不会发出去。
           </p>

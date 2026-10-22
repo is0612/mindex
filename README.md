@@ -25,7 +25,9 @@ src/
 │   ├── profile.ts        # 名字、简介、社交链接、邮箱 ← 先改这里
 │   ├── poems.json        # 诗词正文（条目由管理页增删）
 │   ├── poems.ts          # 诗词排序 / 年份 / 首句等纯函数
-│   └── coach.ts          # AI 陪练：提示词、场景、接口调用 ← 改这里
+│   ├── coach.ts          # AI 陪练：提示词、场景、接口调用 ← 改这里
+│   ├── personas.ts       # 关系档案（人物卡）：数据结构 + localStorage 读写
+│   └── chatlog.ts        # 聊天记录解析 / 脱敏 / 抽样 / 提炼提示词
 ├── stores/poetry.ts      # 诗词数据源（文件 / 浏览器 / 内置 三层兜底 + 增删改）
 ├── pages/PoetryManage.vue# 诗词管理页：#/poems，全部诗词的查改增删
 ├── composables/useHashRoute.ts # 极简 hash 路由（首页 / 管理页）
@@ -83,11 +85,21 @@ public/
 
 面板在 `CoachPanel.vue`，提示词和接口在 `data/coach.ts`。
 
-- **它怎么工作**：你输入「跟领导请假」→ 模型直接以领导身份开口 → 你回 5~8 轮 → 点「结束并复盘」→ 模型逐句给出「你原话 / 改成 / 为什么」。
+- **它怎么工作**：先（可选）选一个人物档案 → 输入「跟领导请假」→ 模型直接以领导身份开口 → 你回 5~8 轮 → 点「结束并复盘」→ 模型逐句给出「你原话 / 改成 / 为什么」。
+- **关系档案（人物卡）** `data/personas.ts`：场景只给一句话时，模型不知道「你是谁、我们之间发生过什么」，就会自己编一个世界——实测里冒出过「你班车司机最近咋样」这种人现实里压根不认识的问句。档案把 `name / relation / facts / topics / voice / avoid` 写死，`buildPersonaBlock()` 渲染成文本块，由 `composeRolePrompt()` **拼在 `ROLE_PROMPT` 后面**（越靠后权重越高，具体档案要压过通用规则）。
+- **`ROLE_PROMPT` 里的「你的世界」**：档案外的人、事、地点一律不存在；不许为了把话聊下去自己造一个人来问；遇到不认识的就照真人反应问「谁啊」「哪个」。另有一条「不制造话题」——冷场不需要模型负责，这条能挡掉一大半硬找话说的塑料感。
+- **档案存哪**：只进 `localStorage`（`mindex.coach.personas.v1` / `mindex.coach.activePersona.v1`）。**这是公开仓库，档案绝不能写进 `src/data` 或提交进 git**，那等于把真实人际关系公开。
+- **从聊天记录生成档案** `chatlog.ts`：不想手填就贴一段聊天记录，在本地解析成上面那份档案。
+  - **解析**：三套正则轮着试——微信 PC 复制（`妈 2026/10/1 12:00`）、QQ 导出（`2026-10-01 12:00:00 妈(123456)`）、单行（`妈：吃饭了没`），取认出条数最多的那套。说话人由用户用两个下拉确认，群聊也能用。
+  - **只发对方的话**：`buildSample()` 只取 TA 说的话，你自己的原话不离开浏览器。上限 360 条 / 6000 字，**均匀抽样**（保住整条时间轴，不是只留最近几百条）。
+  - **发之前脱敏**：证件号（18 位）→ 卡号（16-19 位）→ 手机号 → 邮箱 → 链接。顺序有讲究，一条大正则会把 19 位卡号的前 18 位当成身份证切碎。
+  - **编码**：QQ 导出的 txt 常是 GBK，`onImportFile()` 先按 UTF-8 读，发现替换字符就换 `TextDecoder('gbk')` 重读。
+  - **没 Key 也能用**：点「复制提示词」把提示词 + 样本复制走，粘到 DeepSeek 网页版，把返回的 json 用「直接粘贴」贴回来。
+- **为什么不直接读微信/QQ 聊天记录**：本地库是加密 SQLCipher，网页碰不到；那条路要本机 Python + 内存 dump 密钥，客户端一更新就失效。真要做，应该是独立脚本导出脱敏 txt，再由页面导入提炼成档案，职责分开。
 - **两次独立请求**：陪练用 `ROLE_PROMPT`，复盘用 `REVIEW_PROMPT`，复盘走的是干净上下文。**不要把它们合成一次调用**，否则模型会被刚才的角色人格带软，讲评会变成「你做得挺好，不过……」。
 - **复盘要的是 json**：`REVIEW_PROMPT` 要求模型只输出 json，接口带 `response_format: json_object`，`parseReview()` 负责解析；解析失败会原样显示文本，不会白屏。
 - **Key 怎么来**：页面右上角「设置」里填，存在 `localStorage`（`mindex.coach.settings.v1`），**不写进代码**。这是公开站点，任何写进源码的 key 等于泄露。
-- **没有 Key 的人**：点「复制提示词」把 `ROLE_PROMPT` 复制走，粘到 DeepSeek 网页版一样能练，只是复盘得另开一个对话。
+- **没有 Key 的人**：点「复制提示词」把 `composeRolePrompt()` 的结果（含当前选中的人物档案）复制走，粘到 DeepSeek 网页版一样能练，只是复盘得另开一个对话。
 - **换模型**：`设置` 里的 Base URL 和模型名都能改，任何 OpenAI 兼容接口都行（Kimi、通义、本地 Ollama 等）。下拉里给的是 `deepseek-flash`（日常够用、便宜）和 `deepseek-v4-pro`（复盘更准、贵不少）。
 - **思考模式**：DeepSeek 现在默认开思考模式，陪练时每句话都要先想十几秒，而且思考模式下 `temperature` 不生效。所以代码里分成两种调用：陪练 `thinking: disabled` + `temperature: 1.1`；复盘 `thinking: enabled` + `reasoning_effort: high`（复盘只有一次，值得让它想清楚）。这两个参数只在 `deepseek.com` 域名下才发，换别家不会因为多出字段报错。
 - **旧设置自动迁移**：以前存过 `deepseek-chat` / `deepseek-reasoner` 的，`loadSettings()` 会把它们映射成 `deepseek-flash`，不用手动改。
